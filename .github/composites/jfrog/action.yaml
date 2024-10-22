@@ -35,12 +35,14 @@ runs:
         oidc-audience: ${{ inputs.jf_oidc_audience }}
 
     - name: Set up Artifactory Server
+      shell: bash
       run: |
         export SERVER_ID="Artifactory"        
         export URL=https://${{ inputs.jf_url }}
         jf c add $SERVER_ID --url=$URL --access-token=${{ steps.jf-login.outputs.oidc-token }} --interactive=false
 
     - name: Build and Publish Go Package
+      shell: bash
       run: |
         BUILD_NAME=${{ github.repository }}
         export VERSION=${{ inputs.version }}
@@ -56,5 +58,6 @@ runs:
 
     - name: Discard Old Builds in Artifactory
       if: success() && ${{ inputs.version }} != ''
+      shell: bash
       run: |
         jf rt bdi c --max-builds=5
