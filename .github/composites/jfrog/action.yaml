@@ -37,7 +37,7 @@ runs:
     - name: Set up Artifactory Server
       shell: bash
       run: |
-        export SERVER_ID="Artifactory"        
+        export SERVER_ID="Artifactory"
         export URL=https://${{ inputs.jf_url }}
         jf c add $SERVER_ID --url=$URL --access-token=${{ steps.jf-login.outputs.oidc-token }} --interactive=false
 
@@ -46,13 +46,13 @@ runs:
       run: |
         BUILD_NAME=${{ github.repository }}
         export VERSION=${{ inputs.version }}
-        
+
         # Configure the project's repositories:
         jf go-config --repo-resolve=${{ inputs.jf_repo }} --repo-deploy=${{ inputs.jf_repo }}
-        
+
         # Build the project with go and resolve the project dependencies from Artifactory.
         jf go build ./... --build-name=$BUILD_NAME --build-number=$VERSION
-        
+
         # Publish the package to the <GO_DEPLOY_REPO> repository in Artifactory.
         jf go-publish --build-name=$BUILD_NAME --build-number=$VERSION $VERSION
 

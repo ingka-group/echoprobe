@@ -1,4 +1,4 @@
-# EchoProbe
+# echoprobe
 
 
 This test package offers a simple structure for writing tests. A `fixtures` folder has to exist in the location where the `_test.go` files are so that files can be read. This also ensures that fixtures are kept close to the test and in the relevant package.
