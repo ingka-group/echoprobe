@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Triage PR title
         if: ${{ startsWith(github.head_ref, 'dependabot/') != true }}
-        uses: amannn/action-semantic-pull-request@v5.4.0
+        uses: amannn/action-semantic-pull-request@v5.5.2
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -35,3 +35,12 @@ jobs:
 
       - name: Run .pre-commit-config.yaml
         uses: pre-commit/action@v3.0.0
+
+      - name: JFrog scanning
+        uses: ingka-group/echoprobe/.github/composites/jfrog@main
+        with:
+          jf_url: ${{ secrets.JF_URL }}
+          jf_oidc_provider: ${{ secrets.JF_OIDC_PROVIDER }}
+          jf_oidc_audience: ${{ secrets.JF_OIDC_AUDIENCE }}
+          jf_repo: ${{ secrets.JF_GO_DEV_REPO }}
+          version: ${{ steps.bump_version.outputs.new_tag }}

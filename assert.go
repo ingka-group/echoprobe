@@ -61,6 +61,7 @@ func Assert(it *IntegrationTest, t *Data, res *HandlerResult) {
 	assertHandlerResult(it, t, res)
 }
 
+// LoadMocks loads the mocks for a given test case.
 func LoadMocks(it *IntegrationTest, t *Data) {
 	if it.Mock != nil {
 		for i := range t.Mocks {

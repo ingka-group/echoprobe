@@ -41,12 +41,14 @@ func NewIntegrationTest(t *testing.T, opts ...IntegrationTestOption) *Integratio
 	return it
 }
 
+// TearDown cleans up the database after integration testing.
 func (it *IntegrationTest) TearDown() {
 	for _, o := range it.opts {
 		o.tearDown(it)
 	}
 }
 
+// IntegrationTestOption is an interface for integration test options.
 type IntegrationTestOption interface {
 	setup(*IntegrationTest)
 	tearDown(*IntegrationTest)
