@@ -1,8 +1,7 @@
 SHELL := /bin/bash
 
-EXECUTABLE := echoprobe
+PKG := echoprobe
 GOBIN := $(or $(GOBIN),$(shell pwd)/bin)
-BUILD_PATH := $(GOBIN)/$(EXECUTABLE)
 
 # Code coverage
 COVERAGE_REPORT := coverage.out
@@ -15,8 +14,6 @@ help: ## @HELP prints this message
 help:
 	@echo
 	@echo 'Variables:'
-	@echo '  EXECUTABLE      = $(EXECUTABLE)'
-	@echo '  BUILD_PATH      = $(BUILD_PATH)'
 	@echo '  COVERAGE_REPORT = $(COVERAGE_REPORT)'
 	@echo
 	@echo 'Versions:'
@@ -51,8 +48,8 @@ pre-commit:
 .PHONY: compile
 compile: ## @HELP runs the actual `go build` which updates the service binary
 compile:
-	@echo -n "Building $(EXECUTABLE) into $(GOBIN) ... "
-	@GOBIN=$(GOBIN) CGO_ENABLED=0 go build -o $(BUILD_PATH) cmd/main.go
+	@echo -n "Building $(PKG)... "
+	@GOBIN=$(GOBIN) CGO_ENABLED=0 go build ./...
 	@echo "done."
 
 .PHONY: run
