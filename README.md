@@ -60,7 +60,5 @@ apitest.AssertAllWithCustomContext(it, tests) //or AssertAll(it, tests) for basi
 - Example with PostgreSQL and mocks
 - Example Excel
 - Example JSON response
-- Configure release pipelines
-- JFrog automation scanning workflow
 - Make sure at least one internal service uses the open-source version and it works
 - Branch protection
