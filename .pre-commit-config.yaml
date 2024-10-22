@@ -10,7 +10,6 @@ repos:
       - id: check-json
       - id: check-yaml
       - id: end-of-file-fixer
-        exclude: ^(docs/swagger.*|newman|templates/copyright-header.tpl)
       - id: trailing-whitespace
 
   # Here we partition the hooks to improve on the sequence of checks (heaviest check last)
