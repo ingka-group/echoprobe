@@ -287,7 +287,7 @@ func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Da
         ctx, response := echoprobe.Request(it, t.Method, t.Params)
 
         // middleware to set the service context
-        sctxMiddlewareFn := context.ServiceContextMiddleware[any](zapLogger, nil, nil)
+        sctxMiddlewareFn := context.ServiceContextMiddleware[any]()
 
         // Bind the middlewares to the handler function
         h := sctxMiddlewareFn(t.Handler)
@@ -300,6 +300,7 @@ func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Da
         if err != nil {
             it.T.Log(err.Error())
         }
+
         echoprobe.Assert(it, &t, &echoprobe.HandlerResult{
             Err:      err,
             Response: response,
