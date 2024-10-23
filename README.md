@@ -33,27 +33,27 @@ To write an integration test, you need to create a new test file with the `_test
 
 ```golang
 it := echoprobe.NewIntegrationTest(
-    t,
+	t,
 )
 defer func() {
-    it.TearDown()
+	it.TearDown()
 }()
 
 handler := NewHandler()
 
 tests := []echoprobe.Data{
-    {
-        Name:   "ok: my test case",
-        Method: http.MethodGet,
-        Params: echoprobe.Params {
-            Path: map[string]string {
-                "id": "1",
-            },
-        },
-        Handler:        handler.MyEndpoint,
-        ExpectCode:     http.StatusOK,
-        ExpectResponse: "my_response",
-    },
+	{
+		Name:   "ok: my test case",
+		Method: http.MethodGet,
+		Params: echoprobe.Params {
+			Path: map[string]string {
+				"id": "1",
+			},
+		},
+		Handler:        handler.MyEndpoint,
+		ExpectCode:     http.StatusOK,
+		ExpectResponse: "my_response",
+	},
 }
 
 echoprobe.AssertAll(it, tests)
@@ -66,14 +66,14 @@ To use PostgreSQL in your integration test, you need to pass the `IntegrationTes
 
 ```golang
 it := echoprobe.NewIntegrationTest(
-    t,
-    echoprobe.IntegrationTestWithPostgres{
-        InitSQLScript: "init-db.sql",
-    },
+	t,
+	echoprobe.IntegrationTestWithPostgres{
+		InitSQLScript: "init-db.sql",
+	},
 )
 
 defer func() {
-    it.TearDown()
+	it.TearDown()
 }()
 
 repository := NewRepository(it.Db)
@@ -93,10 +93,10 @@ The YAML file should contain the necessary format so that BigQuery emulator can 
 ```golang
 
 it := test.NewIntegrationTest(
-    t,
-    test.IntegrationTestWithBigQuery{
-        DataPath: "/fixtures/bigquery/data.yaml",
-    },
+	t,
+	test.IntegrationTestWithBigQuery{
+		DataPath: "/fixtures/bigquery/data.yaml",
+	},
 )
 
 bqClient, err := NewBigQueryClient(it.BigQuery)
@@ -110,21 +110,21 @@ tests := []echoprobe.Data{...}
 echoprobe.AssertAll(it, tests)
 
 func NewBigQueryClient(t *testing.T, bq *echoprobe.BigqueryEmulatorContainer) (*bigquery.Client, error) {
-    client, err := bigquery.NewClient(
-        context.Background(),
-        "test",
-        option.WithoutAuthentication(),
-        option.WithEndpoint(fmt.Sprintf("http://%s:%d", bq.BqHost, bq.BqRestPort)),
-    )
+	client, err := bigquery.NewClient(
+		context.Background(),
+		"test",
+		option.WithoutAuthentication(),
+		option.WithEndpoint(fmt.Sprintf("http://%s:%d", bq.BqHost, bq.BqRestPort)),
+	)
 
-    defer func(client *bigquery.Client) {
-        err := client.Close()
-        if err != nil {
-            t.Fatalf("unable to close big query client: %v", err)
-        }
-    }(client)
+	defer func(client *bigquery.Client) {
+		err := client.Close()
+		if err != nil {
+			t.Fatalf("unable to close big query client: %v", err)
+		}
+	}(client)
 
-    return client, err
+	return client, err
 }
 ```
 
@@ -137,39 +137,39 @@ Mock responses are optional and must be stored with the rest of the fixtures as 
 
 ```golang
 it := echoprobe.NewIntegrationTest(
-    t,
-    echoprobe.IntegrationTestWithMocks{
-        BaseURL: "/v1",
-    },
+	t,
+	echoprobe.IntegrationTestWithMocks{
+		BaseURL: "/v1",
+	},
 )
 defer func() {
-    it.TearDown()
+	it.TearDown()
 }()
 
 handler := NewHandler()
 
 tests := []echoprobe.Data{
-    {
-        Name:   "ok: my test case",
-        Method: http.MethodGet,
-        Params: echoprobe.Params {
-            Path: map[string]string {
-                "id": "1",
-            },
-        },
-        Mocks: []echoprobe.MockCall{
-            {
-                Config: &echoprobe.MockConfig{
-                    UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
-                    Response:    "my_mock",
-                    StatusCode: http.StatusOK,
-                },
-            },
-        },
-        Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusOK,
-        ExpectResponse: "my_response",
-    },
+	{
+		Name:   "ok: my test case",
+		Method: http.MethodGet,
+		Params: echoprobe.Params {
+			Path: map[string]string {
+				"id": "1",
+			},
+		},
+		Mocks: []echoprobe.MockCall{
+			{
+				Config: &echoprobe.MockConfig{
+					UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
+					Response:    "my_mock",
+					StatusCode: http.StatusOK,
+				},
+			},
+		},
+		Handler:    handler.MyEndpoint,
+		ExpectCode: http.StatusOK,
+		ExpectResponse: "my_response",
+	},
 }
 
 echoprobe.AssertAll(it, tests)
@@ -181,11 +181,11 @@ An integration test support various types of features all at once. In order to u
 
 ```golang
 it := echoprobe.NewIntegrationTest(
-    t,
-    echoprobe.IntegrationTestWithMocks{
-        BaseURL: "/v1",
-    },
-    echoprobe.IntegrationTestWithPostgres{},
+	t,
+	echoprobe.IntegrationTestWithMocks{
+		BaseURL: "/v1",
+	},
+	echoprobe.IntegrationTestWithPostgres{},
 )
 ```
 
@@ -196,19 +196,19 @@ Additionally, you need to pass some extra instructions to the test case, to iden
 
 ```golang
 tests := []echoprobe.Data{
-    {
-        Name:   "ok: my test case",
-        Method: http.MethodGet,
-        Params: echoprobe.Params {
-            Path: map[string]string {
-                "id": "1",
-            },
-        },
-        Handler:            handler.MyEndpoint,
-        ExpectCode:         http.StatusOK,
-        ExpectResponseType: echoprobe.Excel,
-        ExpectResponse:     "my_excel",
-    },
+	{
+		Name:   "ok: my test case",
+		Method: http.MethodGet,
+		Params: echoprobe.Params {
+			Path: map[string]string {
+				"id": "1",
+			},
+		},
+		Handler:            handler.MyEndpoint,
+		ExpectCode:         http.StatusOK,
+		ExpectResponseType: echoprobe.Excel,
+		ExpectResponse:     "my_excel",
+	},
 }
 ```
 
@@ -219,18 +219,18 @@ by setting the `ExpectErrResponse` field to `true` in the test data.
 
 ```golang
 tests := []echoprobe.Data{
-    {
-        Name:   "error: my test case",
-        Method: http.MethodGet,
-        Params: echoprobe.Params {
-            Path: map[string]string {
-                "id": "INVALID_ID",
-            },
-        },
-        Handler:           handler.MyEndpoint,
-        ExpectCode:        http.StatusBadRequest,
-        ExpectErrResponse: true,
-    },
+	{
+		Name:   "error: my test case",
+		Method: http.MethodGet,
+		Params: echoprobe.Params {
+			Path: map[string]string {
+				"id": "INVALID_ID",
+			},
+		},
+		Handler:           handler.MyEndpoint,
+		ExpectCode:        http.StatusBadRequest,
+		ExpectErrResponse: true,
+	},
 }
 ```
 
@@ -240,18 +240,18 @@ tests := []echoprobe.Data{
 
 ```golang
 tests := []echoprobe.Data{
-    {
-        Name:   "ok: my test case",
-        Method: http.MethodGet,
-        Params: echoprobe.Params {
-            Body: "my_body",
-            Query: map[string][]string {
-                "param1": {"value1", "value2"},
-            }
-        },
-        Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusNoContent,
-    },
+	{
+		Name:   "ok: my test case",
+		Method: http.MethodGet,
+		Params: echoprobe.Params {
+			Body: "my_body",
+			Query: map[string][]string {
+				"param1": {"value1", "value2"},
+			}
+		},
+		Handler:    handler.MyEndpoint,
+		ExpectCode: http.StatusNoContent,
+	},
 }
 ```
 
@@ -261,16 +261,16 @@ In case your request required a body, you can pass it in the `Data` struct. In s
 
 ```golang
 tests := []echoprobe.Data{
-    {
-        Name:   "ok: my test case",
-        Method: http.MethodPost,
-        Params: echoprobe.Params {
-            Body: "my_body",
-        },
-        Handler:        handler.MyEndpoint,
-        ExpectResponse: "my_response",
-        ExpectCode:      http.StatusCreated,
-    },
+	{
+		Name:   "ok: my test case",
+		Method: http.MethodPost,
+		Params: echoprobe.Params {
+			Body: "my_body",
+		},
+		Handler:        handler.MyEndpoint,
+		ExpectResponse: "my_response",
+		ExpectCode:      http.StatusCreated,
+	},
 }
 ````
 
