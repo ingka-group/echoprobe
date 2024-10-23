@@ -15,6 +15,12 @@ and easy-to-use interface to write tests. supporting real HTTP requests and resp
 
 ## Get Started
 
+To install `echoprobe`, you need to run the following command.
+
+```bash
+$ go get github.com/ingka-group/echoprobe
+```
+
 Below you can find a list of examples in order to use `echoprobe`.
 - [Basic usage](#basic-usage)
 - [With PostgreSQL](#with-postgresql)
