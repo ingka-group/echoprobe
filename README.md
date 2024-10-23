@@ -29,9 +29,35 @@ Below you can find a list of examples in order to use `echoprobe`.
 
 ### Basic usage
 
-TBD
-Fixtures are optional, and are required only in case you expect a response body.
-A `fixtures` folder has to exist in the location where the `_test.go` files are so that files can be read. This also ensures that fixtures are kept close to the test and in the relevant package.
+To write an integration test, you need to create a new test file with the `_test.go` suffix. In case your test cases of your handlers expect a response, you can leverage the `fixtures` feature. Fixtures are optional, and are required only in case you expect a response body. A `fixtures` folder has to exist in the location where the `_test.go` files are so that files can be read. This also ensures that fixtures are kept close to the test and in the relevant package.
+
+```golang
+it := echoprobe.NewIntegrationTest(
+    t,
+)
+defer func() {
+    it.TearDown()
+}()
+
+handler := myHandler()
+
+tests := []echoprobe.Data{
+    {
+        Name:   "ok: my test case",
+        Method: http.MethodGet,
+        Params: echoprobe.Params {
+            Path: map[string]string {
+                "id": "1",
+            },
+        },
+        Handler:        handler.MyEndpoint,
+        ExpectCode:     http.StatusOK,
+		ExpectResponse: "my_response",
+    },
+}
+
+echoprobe.AssertAll(it, tests)
+```
 
 
 ### With PostgreSQL
@@ -74,13 +100,14 @@ tests := []echoprobe.Data{
             {
                 Config: &echoprobe.MockConfig{
                     UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
-                    Reponse:    "my_mock.json",
-                    StatusCode: http.StatusNotFound,
+                    Reponse:    "my_mock",
+                    StatusCode: http.StatusOK,
                 },
             },
         },
         Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusOK,
+        ExpectCode: http.StatusOK, 
+        ExpectResponse: "my_response",
     },
 }
 
@@ -119,7 +146,7 @@ tests := []echoprobe.Data{
         Handler:            handler.MyEndpoint,
         ExpectCode:         http.StatusOK,
         ExpectResponseType: echoprobe.Excel,
-        ExpectResponse:     "my_excel.xlsx",
+        ExpectResponse:     "my_excel",
     },
 }
 ```
@@ -156,13 +183,13 @@ tests := []echoprobe.Data{
         Name:   "ok: my test case",
         Method: http.MethodGet,
         Params: echoprobe.Params {
-            Body: "my_body.json", 
+            Body: "my_body", 
             Query: map[string][]string {
                 "param1": {"value1", "value2"},
             }
         },
         Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusOK,
+        ExpectCode: http.StatusNoContent,
     },
 }
 ```
@@ -177,10 +204,11 @@ tests := []echoprobe.Data{
         Name:   "ok: my test case",
         Method: http.MethodPost,
         Params: echoprobe.Params {
-            Body: "my_body.json",
+            Body: "my_body",
         },
-        Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusCreated,
+        Handler:        handler.MyEndpoint, 
+        ExpectResponse: "my_response",
+        ExpectCode:      http.StatusCreated,
     },
 }
 ````
