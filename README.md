@@ -62,7 +62,28 @@ echoprobe.AssertAll(it, tests)
 
 ### With PostgreSQL
 
-TBD
+To use PostgreSQL in your integration test, you need to pass the `IntegrationTestWithPostgres` option to the `NewIntegrationTest` function. _Optionally_, you can initialize your database using a SQL script, that will be executed before the test starts. The script should contain the necessary DDL and DML statements to prepare the database for the test. The script must be present under `fixtures`. For example, `fixtures/init-db.sql`.
+
+```golang
+it := echoprobe.NewIntegrationTest(
+    t,
+    echoprobe.IntegrationTestWithPostgres{
+        InitSQLScript: "init-db.sql",
+    },
+)
+
+defer func() {
+    it.TearDown()
+}()
+
+myRepository := NewMyRepository(it.Db)
+myService := NewMyService(myRepository)
+myHandler := NewMyHandler(myService)
+
+tests := []echoprobe.Data{...}
+
+echoprobe.AssertAll(it, tests)
+```
 
 ### With BigQuery
 
