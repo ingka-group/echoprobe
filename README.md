@@ -13,7 +13,7 @@ and easy-to-use interface to write tests. supporting real HTTP requests and resp
 - Fully compatible with [fastecho](https://github.com/ingka-group/fastecho)
 
 
-## Get Started (WIP)
+## Get Started
 
 Below you can find a list of examples in order to use `echoprobe`.
 - [Basic usage](#basic-usage)
