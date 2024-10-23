@@ -292,17 +292,12 @@ func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Da
     for _, t := range tt {
         ctx, response := echoprobe.Request(it, t.Method, t.Params)
 
-        // middleware to set the service context
-        sctxMiddlewareFn := context.ServiceContextMiddleware[any]()
-
-        // Bind the middlewares to the handler function
-        h := sctxMiddlewareFn(t.Handler)
-
-        // Execute the handler function
-        // Since the handler will use the ServiceContextMiddleware, which converts the echo.Context
-        // to context.ServiceContext we can pass the echo.Context to the handler.
-        err = h(ctx)
-
+        sctx := &CustomContext{
+            Context:   ctx,
+            Clock:     clock.NewMock(),
+        }
+        
+        err := t.Handler(sctx)
         if err != nil {
             it.T.Log(err.Error())
         }
