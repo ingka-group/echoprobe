@@ -79,8 +79,8 @@ tests := []echoprobe.Data{
                 },
             },
         },
-        Handler:           handler.MyEndpoint,
-        ExpectCode:        http.StatusOK,
+        Handler:    handler.MyEndpoint,
+        ExpectCode: http.StatusOK,
     },
 }
 
@@ -116,10 +116,10 @@ tests := []echoprobe.Data{
                 "id": "1",
             },
         },
-        Handler:           handler.MyEndpoint,
-        ExpectCode:        http.StatusOK,
+        Handler:            handler.MyEndpoint,
+        ExpectCode:         http.StatusOK,
         ExpectResponseType: echoprobe.Excel,
-        ExpectResponse:    "my_excel.xlsx",
+        ExpectResponse:     "my_excel.xlsx",
     },
 }
 ```
@@ -141,7 +141,7 @@ tests := []echoprobe.Data{
         },
         Handler:           handler.MyEndpoint,
         ExpectCode:        http.StatusBadRequest,
-		ExpectErrResponse: true,
+        ExpectErrResponse: true,
     },
 }
 ```
@@ -156,13 +156,13 @@ tests := []echoprobe.Data{
         Name:   "ok: my test case",
         Method: http.MethodGet,
         Params: echoprobe.Params {
-			Body: "my_body.json",
+            Body: "my_body.json", 
             Query: map[string][]string {
                 "param1": {"value1", "value2"},
-	        }
+            }
         },
-        Handler:           handler.MyEndpoint,
-        ExpectCode:        http.StatusOK,
+        Handler:    handler.MyEndpoint,
+        ExpectCode: http.StatusOK,
     },
 }
 ```
@@ -177,10 +177,10 @@ tests := []echoprobe.Data{
         Name:   "ok: my test case",
         Method: http.MethodPost,
         Params: echoprobe.Params {
-			Body: "my_body.json",
+            Body: "my_body.json",
         },
-        Handler:           handler.MyEndpoint,
-        ExpectCode:        http.StatusCreated,
+        Handler:    handler.MyEndpoint,
+        ExpectCode: http.StatusCreated,
     },
 }
 ````
