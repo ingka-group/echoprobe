@@ -15,8 +15,8 @@ type Params struct {
 	Body  string
 }
 
-// request creates a new request and a new test service context to which it passes the required parameters.
-func request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder) {
+// Request creates a new request and a new test service context to which it passes the required parameters.
+func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder) {
 	var reader io.Reader
 
 	// If the body is not empty, read the body fixture and create a reader from it.

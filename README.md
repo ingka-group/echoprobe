@@ -25,6 +25,7 @@ Below you can find a list of examples in order to use `echoprobe`.
 - [Error responses](#error-responses)
 - [Query parameters](#query-parameters)
 - [Request body](#request-body)
+- [Assert with custom context](#assert-with-custom-context)
 
 
 ### Basic usage
@@ -92,9 +93,9 @@ The YAML file should contain the necessary format so that BigQuery emulator can 
 
 ```golang
 
-it := test.NewIntegrationTest(
-    t,
-    test.IntegrationTestWithBigQuery{
+it := echoprobe.NewIntegrationTest(
+    t, 
+    echoprobe.IntegrationTestWithBigQuery{
         DataPath: "/fixtures/bigquery/data.yaml",
     },
 )
@@ -273,6 +274,39 @@ tests := []echoprobe.Data{
     },
 }
 ````
+
+### Assert with custom context
+
+`echoprobe` provides the function `AssertAll` to assert the test cases. In case you need to assert the test cases with a custom context, you can create your own function for that.
+
+```golang
+// AssertAllWithCustomContext is a helper function to run multiple tests in a single test function.
+// Before asserting a test, the function prepares the custom context.ServiceContext and calls the handler function.
+func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Data) {
+    for _, t := range tt {
+        ctx, response := echoprobe.Request(it, t.Method, t.Params)
+
+        // middleware to set the service context
+        sctxMiddlewareFn := context.ServiceContextMiddleware[any](zapLogger, nil, nil)
+
+        // Bind the middlewares to the handler function
+        h := sctxMiddlewareFn(t.Handler)
+
+        // Execute the handler function
+        // Since the handler will use the ServiceContextMiddleware, which converts the echo.Context
+        // to context.ServiceContext we can pass the echo.Context to the handler.
+        err = h(ctx)
+
+        if err != nil {
+            it.T.Log(err.Error())
+        }
+        echoprobe.Assert(it, &t, &echoprobe.HandlerResult{
+            Err:      err,
+            Response: response,
+        })
+    }
+}
+```
 
 ### Testing
 
