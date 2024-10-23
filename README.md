@@ -39,7 +39,7 @@ defer func() {
     it.TearDown()
 }()
 
-handler := myHandler()
+handler := NewHandler()
 
 tests := []echoprobe.Data{
     {
@@ -76,9 +76,9 @@ defer func() {
     it.TearDown()
 }()
 
-myRepository := NewMyRepository(it.Db)
-myService := NewMyService(myRepository)
-myHandler := NewMyHandler(myService)
+repository := NewRepository(it.Db)
+service := NewService(repository)
+handler := NewHandler(service)
 
 tests := []echoprobe.Data{...}
 
@@ -87,7 +87,47 @@ echoprobe.AssertAll(it, tests)
 
 ### With BigQuery
 
-TBD
+`echoprobe` supports testing with BigQuery using `ghcr.io/goccy/bigquery-emulator` as a test contair. To use BigQuery in your integration test, you need to pass the `IntegrationTestWithBigQuery` option to the `NewIntegrationTest` function. It is expected that BigQuery needs to be populated with data upon the test startup. To do that, you need to provide a `.yaml` under the `fixtures/bigquery` directory.
+The YAML file should contain the necessary format so that BigQuery emulator can mount the data in the container.
+
+```golang
+
+it := test.NewIntegrationTest(
+	t,
+	test.IntegrationTestWithBigQuery{
+		DataPath: "/fixtures/bigquery/data.yaml",
+	},
+)
+
+bqClient, err := NewBigQueryClient(it.BigQuery)
+
+repository := NewRepository(bqClient)
+service := NewService(repository)
+handler:= NewHandler(service)
+
+tests := []echoprobe.Data{...}
+
+echoprobe.AssertAll(it, tests)
+
+func NewBigQueryClient(t *testing.T, bq *echoprobe.BigqueryEmulatorContainer) (*bigquery.Client, error) {
+	client, err := bigquery.NewClient(
+		context.Background(),
+		"test",
+		option.WithoutAuthentication(),
+		option.WithEndpoint(fmt.Sprintf("http://%s:%d", bq.BqHost, bq.BqRestPort)),
+	)
+
+	defer func(client *bigquery.Client) {
+		err := client.Close()
+		if err != nil {
+			t.Fatalf("unable to close big query client: %v", err)
+		}
+	}(client)
+
+	return client, err
+}
+```
+
 
 ### With Mocks
 
@@ -106,7 +146,7 @@ defer func() {
     it.TearDown()
 }()
 
-handler := myHandler()
+handler := NewHandler()
 
 tests := []echoprobe.Data{
     {
@@ -121,13 +161,13 @@ tests := []echoprobe.Data{
             {
                 Config: &echoprobe.MockConfig{
                     UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
-                    Reponse:    "my_mock",
+                    Response:    "my_mock",
                     StatusCode: http.StatusOK,
                 },
             },
         },
         Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusOK, 
+        ExpectCode: http.StatusOK,
         ExpectResponse: "my_response",
     },
 }
@@ -204,7 +244,7 @@ tests := []echoprobe.Data{
         Name:   "ok: my test case",
         Method: http.MethodGet,
         Params: echoprobe.Params {
-            Body: "my_body", 
+            Body: "my_body",
             Query: map[string][]string {
                 "param1": {"value1", "value2"},
             }
@@ -227,7 +267,7 @@ tests := []echoprobe.Data{
         Params: echoprobe.Params {
             Body: "my_body",
         },
-        Handler:        handler.MyEndpoint, 
+        Handler:        handler.MyEndpoint,
         ExpectResponse: "my_response",
         ExpectCode:      http.StatusCreated,
     },
