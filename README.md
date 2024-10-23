@@ -33,10 +33,12 @@ Below you can find a list of examples in order to use `echoprobe`.
 - [Request body](#request-body)
 - [Assert with custom context](#assert-with-custom-context)
 
+You can find some complete examples in the [test](./test) directory.
 
 ### Basic usage
 
 To write an integration test, you need to create a new test file with the `_test.go` suffix. In case your test cases of your handlers expect a response, you can leverage the `fixtures` feature. Fixtures are optional, and are required only in case you expect a response body. A `fixtures` folder has to exist in the location where the `_test.go` files are so that files can be read. This also ensures that fixtures are kept close to the test and in the relevant package.
+To store the expected responses, you need to create a `responses` directory under `fixtures` to store your JSON responses. For example, `fixtures/responses/my_response.json`.
 
 ```golang
 it := echoprobe.NewIntegrationTest(
@@ -65,7 +67,6 @@ tests := []echoprobe.Data{
 
 echoprobe.AssertAll(it, tests)
 ```
-
 
 ### With PostgreSQL
 
@@ -134,7 +135,6 @@ func NewBigQueryClient(t *testing.T, bq *echoprobe.BigqueryEmulatorContainer) (*
     return client, err
 }
 ```
-
 
 ### With Mocks
 
