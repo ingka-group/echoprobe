@@ -287,21 +287,24 @@ tests := []echoprobe.Data{
 
 ```golang
 // AssertAllWithCustomContext is a helper function to run multiple tests in a single test function.
-// Before asserting a test, the function prepares the custom context.ServiceContext and calls the handler function.
+// Before asserting a test, the function prepares the custom context and calls the handler function.
 func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Data) {
     for _, t := range tt {
         ctx, response := echoprobe.Request(it, t.Method, t.Params)
 
+        // Create the custom context
         sctx := &CustomContext{
             Context:   ctx,
             Clock:     clock.NewMock(),
         }
-        
+
+        // Attach the custom context to the handler
         err := t.Handler(sctx)
         if err != nil {
             it.T.Log(err.Error())
         }
 
+        // Assert the test
         echoprobe.Assert(it, &t, &echoprobe.HandlerResult{
             Err:      err,
             Response: response,
