@@ -77,7 +77,7 @@ func AssertAll(it *IntegrationTest, tt []Data) {
 
 		LoadMocks(it, &t)
 
-		ctx, response := request(it, t.Method, t.Params)
+		ctx, response := Request(it, t.Method, t.Params)
 		err := t.Handler(ctx)
 		if err != nil {
 			it.T.Log(err.Error())

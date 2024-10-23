@@ -15,7 +15,7 @@ and easy-to-use interface to write tests. supporting real HTTP requests and resp
 
 ## Get Started
 
-To install `echoprobe`, you need to run the following command.
+Install `echoprobe`, using `go get`:
 
 ```bash
 $ go get github.com/ingka-group/echoprobe
@@ -100,7 +100,7 @@ The YAML file should contain the necessary format so that BigQuery emulator can 
 ```golang
 
 it := echoprobe.NewIntegrationTest(
-    t, 
+    t,
     echoprobe.IntegrationTestWithBigQuery{
         DataPath: "/fixtures/bigquery/data.yaml",
     },
