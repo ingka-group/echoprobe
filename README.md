@@ -77,8 +77,8 @@ defer func() {
 }()
 
 repository := NewRepository(it.Db)
-service := NewService(repository)
-handler := NewHandler(service)
+service :=    NewService(repository)
+handler :=    NewHandler(service)
 
 tests := []echoprobe.Data{...}
 
@@ -102,8 +102,8 @@ it := test.NewIntegrationTest(
 bqClient, err := NewBigQueryClient(it.BigQuery)
 
 repository := NewRepository(bqClient)
-service := NewService(repository)
-handler:= NewHandler(service)
+service :=    NewService(repository)
+handler:=     NewHandler(service)
 
 tests := []echoprobe.Data{...}
 
@@ -161,13 +161,13 @@ tests := []echoprobe.Data{
             {
                 Config: &echoprobe.MockConfig{
                     UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
-                    Response:    "my_mock",
+                    Response:   "my_mock",
                     StatusCode: http.StatusOK,
                 },
             },
         },
-        Handler:    handler.MyEndpoint,
-        ExpectCode: http.StatusOK,
+        Handler:        handler.MyEndpoint,
+        ExpectCode:     http.StatusOK,
         ExpectResponse: "my_response",
     },
 }
@@ -269,7 +269,7 @@ tests := []echoprobe.Data{
         },
         Handler:        handler.MyEndpoint,
         ExpectResponse: "my_response",
-        ExpectCode:      http.StatusCreated,
+        ExpectCode:     http.StatusCreated,
     },
 }
 ````
