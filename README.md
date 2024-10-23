@@ -74,7 +74,7 @@ tests := []echoprobe.Data{
             {
                 Config: &echoprobe.MockConfig{
                     UrlPath:    fmt.Sprintf("/v1/users/%s", "1"),
-					Reponse:    "my_mock.json",
+                    Reponse:    "my_mock.json",
                     StatusCode: http.StatusNotFound,
                 },
             },
