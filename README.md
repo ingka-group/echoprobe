@@ -1,4 +1,4 @@
-# echoprobe
+# echoprobe 🧪
 
 **echoprobe** is a simple Go library for writing integration tests in for [echo](https://github.com/labstack/echo) framework.
 It uses [test-containers](https://golang.testcontainers.org/) and [gock](https://github.com/h2non/gock) to provide a simple
