@@ -41,6 +41,12 @@ jobs:
       - name: Run .pre-commit-config.yaml
         uses: pre-commit/action@v3.0.0
 
+      - name: Get short SHA
+        id: short_sha
+        shell: bash
+        run: |
+          echo "sha=v$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
       - name: JFrog scanning
         uses: ingka-group/echoprobe/.github/composites/jfrog@fix/jfrog
         with:
@@ -48,4 +54,4 @@ jobs:
           jf_oidc_provider: ${{ secrets.JF_OIDC_PROVIDER }}
           jf_oidc_audience: ${{ secrets.JF_OIDC_AUDIENCE }}
           jf_repo: ${{ secrets.JF_GO_DEV_REPO }}
-          version: ${{ steps.bump_version.outputs.new_tag }}
+          version: ${{ steps.short_sha.outputs.sha }}
