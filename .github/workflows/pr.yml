@@ -3,6 +3,10 @@ name: 🔬 PR Analysis
 on:
   pull_request:
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   pr-analysis:
     runs-on: ubuntu-latest
