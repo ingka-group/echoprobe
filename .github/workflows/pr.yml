@@ -45,7 +45,7 @@ jobs:
         id: short_sha
         shell: bash
         run: |
-          echo "sha=v$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+          echo "sha=v$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: JFrog scanning
         uses: ingka-group/echoprobe/.github/composites/jfrog@fix/jfrog
