@@ -37,9 +37,7 @@ runs:
     - name: Set up Artifactory Server
       shell: bash
       run: |
-        export SERVER_ID="Artifactory"
-        export URL=https://${{ inputs.jf_url }}
-        jf c add $SERVER_ID --url=$URL --access-token=${{ steps.jf-login.outputs.oidc-token }} --interactive=false
+        jf c add "Artifactory" --url=${{ inputs.jf_url }} --access-token=${{ steps.jf-login.outputs.oidc-token }} --interactive=false
 
     - name: Build and Publish Go Package
       shell: bash
