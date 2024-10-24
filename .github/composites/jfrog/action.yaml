@@ -27,7 +27,7 @@ runs:
   steps:
     - name: Set up Artifactory CLI
       uses: jfrog/setup-jfrog-cli@v4
-      id: jf-login
+      id: jf-oidc
       env:
         JF_URL: ${{ inputs.jf_url }}
       with:
@@ -37,7 +37,7 @@ runs:
     - name: Set up Artifactory Server
       shell: bash
       run: |
-        jf c add "Artifactory" --url=${{ inputs.jf_url }} --access-token=${{ steps.jf-login.outputs.oidc-token }} --interactive=false
+        jf c add "Artifactory" --url=${{ inputs.jf_url }} --access-token=${{ steps.jf-oidc.outputs.oidc-token }} --interactive=false
 
     - name: Build and Publish Go Package
       shell: bash
