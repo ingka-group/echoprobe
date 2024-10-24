@@ -37,7 +37,7 @@ jobs:
         uses: pre-commit/action@v3.0.0
 
       - name: JFrog scanning
-        uses: ingka-group/echoprobe/.github/composites/jfrog@main
+        uses: ingka-group/echoprobe/.github/composites/jfrog@fix/jfrog
         with:
           jf_url: ${{ secrets.JF_URL }}
           jf_oidc_provider: ${{ secrets.JF_OIDC_PROVIDER }}
