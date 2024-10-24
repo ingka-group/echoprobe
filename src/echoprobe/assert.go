@@ -111,7 +111,7 @@ func assertHandlerResult(it *IntegrationTest, t *Data, res *HandlerResult) {
 
 			responseRows, err := it.Fixtures.ExcelToMap(res.Response.Body.Bytes())
 			if err != nil {
-				it.T.Fatalf(err.Error())
+				it.T.Fatal(err.Error())
 			}
 
 			require.Equal(it.T, expectedRows, responseRows)
