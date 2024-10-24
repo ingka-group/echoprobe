@@ -29,17 +29,17 @@ jobs:
           go-version-file: "go.mod"
           cache-dependency-path: "go.sum"
 
-#      - name: Setup deps
-#        shell: bash
-#        run: |
-#          # A linter that helps with getting the import ordering right
-#          go install github.com/hedhyw/go-import-lint/cmd/go-import-lint@latest
-#
-#          # A state-of-the-art golang linter.
-#          go install honnef.co/go/tools/cmd/staticcheck@latest
-#
-#      - name: Run .pre-commit-config.yaml
-#        uses: pre-commit/action@v3.0.0
+      - name: Setup deps
+        shell: bash
+        run: |
+          # A linter that helps with getting the import ordering right
+          go install github.com/hedhyw/go-import-lint/cmd/go-import-lint@latest
+
+          # A state-of-the-art golang linter.
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run .pre-commit-config.yaml
+        uses: pre-commit/action@v3.0.0
 
       - name: Bump version and push tag
         uses: anothrNick/github-tag-action@1.69.0
