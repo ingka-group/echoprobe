@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         BUILD_NAME=${{ github.repository }}
-        export VERSION=${{ inputs.version }}
+        VERSION=${{ inputs.version }}
 
         # Configure the project's repositories:
         jf go-config --repo-resolve=${{ inputs.jf_repo }} --repo-deploy=${{ inputs.jf_repo }}
