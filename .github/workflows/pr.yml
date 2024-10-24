@@ -4,6 +4,7 @@ on:
   pull_request:
 
 permissions:
+  pull-requests: read
   contents: read
   id-token: write
 
