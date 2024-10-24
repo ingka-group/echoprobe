@@ -29,7 +29,7 @@ runs:
       uses: jfrog/setup-jfrog-cli@v4
       id: jf-login
       env:
-        JF_URL: {{ inputs.jf_url }}
+        JF_URL: ${{ inputs.jf_url }}
       with:
         oidc-provider-name: ${{ inputs.jf_oidc_provider }}
         oidc-audience: ${{ inputs.jf_oidc_audience }}
