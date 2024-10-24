@@ -23,15 +23,6 @@ func excelToMap(excelFile *excelize.File) (map[string][][]string, error) {
 	return data, nil
 }
 
-// readFile reads an excel from a file.
-func readFile(filePath string) (*excelize.File, error) {
-	file, err := excelize.OpenFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
-}
-
 // bytesToExcel parses a byte array into an excel file.
 func bytesToExcel(content []byte) (*excelize.File, error) {
 	reader := bytes.NewReader(content)
