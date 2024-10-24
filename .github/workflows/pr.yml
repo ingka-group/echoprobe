@@ -41,13 +41,18 @@ jobs:
 #      - name: Run .pre-commit-config.yaml
 #        uses: pre-commit/action@v3.0.0
 
-      - name: Get short SHA
-        id: short_sha
-        shell: bash
-        run: |
-          echo "sha=v11" >> $GITHUB_OUTPUT
-          # echo "sha=v$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
-        
+      - name: Bump version and push tag
+        uses: anothrNick/github-tag-action@1.69.0
+        id: bump_version
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          WITH_V: true
+          RELEASE_BRANCHES: main
+          # custom tagging policy adapted to conventional commits
+          MAJOR_STRING_TOKEN: feat!
+          MINOR_STRING_TOKEN: feat
+          DEFAULT_BUMP: patch
+          DRY_RUN: true # Do not push the tag during PR
 
       - name: JFrog scanning
         uses: ingka-group/echoprobe/.github/composites/jfrog@fix/jfrog
@@ -56,4 +61,4 @@ jobs:
           jf_oidc_provider: ${{ secrets.JF_OIDC_PROVIDER }}
           jf_oidc_audience: ${{ secrets.JF_OIDC_AUDIENCE }}
           jf_repo: ${{ secrets.JF_GO_DEV_REPO }}
-          version: ${{ steps.short_sha.outputs.sha }}
+          version: ${{ steps.bump_version.outputs.new_tag }}

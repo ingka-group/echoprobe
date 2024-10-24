@@ -44,8 +44,6 @@ runs:
       run: |
         BUILD_NAME=${{ github.repository }}
         VERSION=${{ inputs.version }}
-        echo ${{inputs.version}}
-        echo $VERSION
 
         # Configure the project's repositories:
         jf go-config --repo-resolve=${{ inputs.jf_repo }} --repo-deploy=${{ inputs.jf_repo }}
