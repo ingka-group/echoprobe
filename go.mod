@@ -10,7 +10,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.34.0
-	github.com/xuri/excelize/v2 v2.8.1
+	github.com/xuri/excelize/v2 v2.9.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.12
 )
@@ -60,7 +60,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
-	github.com/richardlehane/msoleps v1.0.3 // indirect
+	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/shirou/gopsutil/v3 v3.24.2 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
@@ -68,8 +68,8 @@ require (
 	github.com/tklauser/numcpus v0.7.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
-	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
+	github.com/xuri/efp v0.0.0-20240408161823-9ad904a10d6d // indirect
+	github.com/xuri/nfp v0.0.0-20240318013403-ab9948c2c4a7 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
 	go.opentelemetry.io/otel v1.28.0 // indirect
@@ -77,10 +77,10 @@ require (
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
-	golang.org/x/crypto v0.24.0 // indirect
-	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/crypto v0.28.0 // indirect
+	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
