@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ingka-group/echoprobe/src/echoprobe"
+	"github.com/ingka-group/echoprobe"
 )
 
 func TestIntegrationHandler_Ready(t *testing.T) {
