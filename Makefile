@@ -5,7 +5,7 @@ GOBIN := $(or $(GOBIN),$(shell pwd)/bin)
 
 # Code coverage
 COVERAGE_REPORT := coverage.out
-COVERAGE_PKG := ./src/...
+COVERAGE_PKG := ./...
 
 # Dependency versions
 GO_IMPORT_LINT_VERSION ?= latest
