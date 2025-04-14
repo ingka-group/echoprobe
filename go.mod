@@ -3,7 +3,7 @@ module github.com/ingka-group/echoprobe
 go 1.22.5
 
 require (
-	github.com/docker/docker v27.3.1+incompatible
+	github.com/docker/docker v28.0.4+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/h2non/gock v1.2.0
 	github.com/labstack/echo/v4 v4.13.3
