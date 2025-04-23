@@ -1,7 +1,6 @@
 module github.com/ingka-group/echoprobe
 
-go 1.22.5
-toolchain go1.24.1
+go 1.24.1
 
 require (
 	github.com/docker/docker v28.1.1+incompatible
