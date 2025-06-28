@@ -48,7 +48,7 @@ func (f Fixtures) ReadExcelFile(s string) map[string][][]string {
 func (f Fixtures) ReadCsvFile(s string) string {
 	executionPath, err := testpath()
 	if err != nil {
-		log.Fatalf("could not file test path: %v", err)
+		log.Fatalf("could not find test path: %v", err)
 	}
 
 	path := fmt.Sprintf("%s/fixtures/csv/%s.csv", executionPath, s)
