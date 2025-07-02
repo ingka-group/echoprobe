@@ -44,6 +44,22 @@ func (f Fixtures) ReadExcelFile(s string) map[string][][]string {
 	return file
 }
 
+// ReadExcelFile reads an excel file with xlsx extension.
+func (f Fixtures) ReadCsvFile(s string) string {
+	executionPath, err := testpath()
+	if err != nil {
+		log.Fatalf("could not find test path: %v", err)
+	}
+
+	path := fmt.Sprintf("%s/fixtures/csv/%s.csv", executionPath, s)
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("could not read file '%s': %v", path, err)
+	}
+
+	return string(buf)
+}
+
 // ReadFixture reads a fixture from a file.
 func (f Fixtures) ReadFixture(filename, dir string) string {
 	executionPath, err := testpath()

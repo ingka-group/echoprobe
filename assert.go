@@ -19,11 +19,13 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
 	Excel = "xlsx"
+	CSV   = "csv"
 )
 
 // Data is a helper struct to define the parameters of a request for a test case.
@@ -129,6 +131,9 @@ func assertHandlerResult(it *IntegrationTest, t *Data, res *HandlerResult) {
 			}
 
 			require.Equal(it.T, expectedRows, responseRows)
+		} else if t.ExpectResponseType == CSV {
+			expectedRows := strings.TrimSpace(it.Fixtures.ReadCsvFile(t.ExpectResponse))
+			assert.Equal(it.T, expectedRows, strings.TrimSpace(res.Response.Body.String()), "csv data mismatch")
 		} else {
 			t.ExpectResponse = it.Fixtures.ReadResponse(t.ExpectResponse)
 
