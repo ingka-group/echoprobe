@@ -69,3 +69,40 @@ func TestIntegrationHandler_Live(t *testing.T) {
 
 	echoprobe.AssertAll(it, tests)
 }
+
+func TestIntegrationHandler_MockWithHttpClient(t *testing.T) {
+	if testing.Short() {
+		t.Skip("(skipped)")
+	}
+
+	// custom http client
+	httpClient := http.Client{Transport: &http.Transport{}}
+
+	it := echoprobe.NewIntegrationTest(t, echoprobe.IntegrationTestWithMocks{
+		BaseURL:    "https://weather.com",
+		HttpClient: &httpClient,
+	})
+
+	handler := NewApiHandler(&httpClient)
+
+	tests := []echoprobe.Data{
+		{
+			Name:           "ok: Weather forecast",
+			Method:         http.MethodGet,
+			Handler:        handler.Weather,
+			ExpectCode:     http.StatusOK,
+			ExpectResponse: "weather-ok",
+			Mocks: []echoprobe.MockCall{
+				{
+					Config: &echoprobe.MockConfig{
+						UrlPath:    "/forecast/amsterdam",
+						Response:   "weather-ok",
+						StatusCode: http.StatusOK,
+					},
+				},
+			},
+		},
+	}
+
+	echoprobe.AssertAll(it, tests)
+}

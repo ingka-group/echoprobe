@@ -38,13 +38,15 @@ type MockConfig struct {
 
 // Mock is the struct that gives access to all the mocks
 type Mock struct {
-	baseURL string
+	baseURL    string
+	httpClient *http.Client
 }
 
 // NewMock creates a new Mock
-func NewMock(baseURL string) *Mock {
+func NewMock(baseURL string, httpClient *http.Client) *Mock {
 	return &Mock{
-		baseURL: baseURL,
+		baseURL:    baseURL,
+		httpClient: httpClient,
 	}
 }
 
@@ -55,17 +57,16 @@ func (m *Mock) TearDown() {
 
 // Debug is used to print the request URL and the mock returned for that particular request
 func (m *Mock) Debug() {
-	gock.Observe(func(req *http.Request, mock gock.Mock) {
-		debug := fmt.Sprintf(
-			"\n-- MOCK START\n"+
-				"%s - %d \n"+
-				"%s \n"+
-				"-- MOCK END\n",
-			req.URL, mock.Response().StatusCode, string(mock.Response().BodyBuffer),
-		)
+	gock.Observe(gock.DumpRequest)
 
-		fmt.Println(debug)
-	})
+	defer func() {
+		if !gock.IsDone() {
+			fmt.Println("Pending mocks:")
+			for _, mock := range gock.Pending() {
+				fmt.Printf("- %s %s\n", mock.Request().Method, mock.Request().URLStruct.String())
+			}
+		}
+	}()
 }
 
 func (m *Mock) SetJSON(response *gock.Response, config *MockConfig) {
@@ -86,6 +87,9 @@ func (m *Mock) MockRequest(config *MockConfig) {
 	}
 
 	request := gock.New(m.baseURL)
+	if m.httpClient != nil {
+		gock.InterceptClient(m.httpClient)
+	}
 
 	switch config.Method {
 	case http.MethodGet:
