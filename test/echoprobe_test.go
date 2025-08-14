@@ -137,7 +137,7 @@ func TestIntegrationHandler_MockWeatherWithoutHttpClientConfigured(t *testing.T)
 
 	tests := []echoprobe.Data{
 		{
-			Name:       "regression: weather forecast should fail when Mock doesn't contain the custom http.Client",
+			Name:       "ok: weather forecast mock doesn't work when Mock doesn't contain the custom http.Client",
 			Method:     http.MethodGet,
 			Handler:    handler.Weather,
 			ExpectCode: http.StatusServiceUnavailable,

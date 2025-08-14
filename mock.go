@@ -52,9 +52,6 @@ func NewMock(baseURL string) *Mock {
 // TearDown removes all the registered mocks
 func (m *Mock) TearDown() {
 	gock.Off()
-	if m.httpClient != nil {
-		gock.RestoreClient(m.httpClient)
-	}
 }
 
 // Debug is used to print the request URL and the mock returned for that particular request
