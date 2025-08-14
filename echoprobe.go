@@ -17,7 +17,6 @@ package echoprobe
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/docker/go-connections/nat"
@@ -109,12 +108,11 @@ func (o IntegrationTestWithPostgres) tearDown(it *IntegrationTest) {
 // IntegrationTestWithMocks is an option for integration testing that allows mocking
 // The mocks should be placed in a 'mocks' directory where the _test.go file is located.
 type IntegrationTestWithMocks struct {
-	BaseURL    string
-	HttpClient *http.Client
+	BaseURL string
 }
 
 func (o IntegrationTestWithMocks) setup(it *IntegrationTest) {
-	it.Mock = NewMock(o.BaseURL, o.HttpClient)
+	it.Mock = NewMock(o.BaseURL)
 }
 
 func (o IntegrationTestWithMocks) tearDown(it *IntegrationTest) {

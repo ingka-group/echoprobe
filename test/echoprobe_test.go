@@ -70,7 +70,7 @@ func TestIntegrationHandler_Live(t *testing.T) {
 	echoprobe.AssertAll(it, tests)
 }
 
-func TestIntegrationHandler_MockWithHttpClient(t *testing.T) {
+func TestIntegrationHandler_MockWeatherWithCustomHttpClient(t *testing.T) {
 	if testing.Short() {
 		t.Skip("(skipped)")
 	}
@@ -79,9 +79,9 @@ func TestIntegrationHandler_MockWithHttpClient(t *testing.T) {
 	httpClient := http.Client{Transport: &http.Transport{}}
 
 	it := echoprobe.NewIntegrationTest(t, echoprobe.IntegrationTestWithMocks{
-		BaseURL:    "https://weather.com",
-		HttpClient: &httpClient,
+		BaseURL: "https://weather.com",
 	})
+	it.Mock.SetHttpClient(&httpClient)
 
 	handler := NewApiHandler(&httpClient)
 
@@ -92,6 +92,55 @@ func TestIntegrationHandler_MockWithHttpClient(t *testing.T) {
 			Handler:        handler.Weather,
 			ExpectCode:     http.StatusOK,
 			ExpectResponse: "weather-ok",
+			Mocks: []echoprobe.MockCall{
+				{
+					Config: &echoprobe.MockConfig{
+						UrlPath:    "/forecast/amsterdam",
+						Response:   "weather-ok",
+						StatusCode: http.StatusOK,
+					},
+				},
+			},
+		},
+		{
+			Name:           "regression: without a custom client",
+			Method:         http.MethodGet,
+			Handler:        handler.Weather,
+			ExpectCode:     http.StatusOK,
+			ExpectResponse: "weather-ok",
+			Mocks: []echoprobe.MockCall{
+				{
+					Config: &echoprobe.MockConfig{
+						UrlPath:    "/forecast/amsterdam",
+						Response:   "weather-ok",
+						StatusCode: http.StatusOK,
+					},
+				},
+			},
+		},
+	}
+
+	echoprobe.AssertAll(it, tests)
+}
+
+func TestIntegrationHandler_MockWeatherWithoutHttpClientConfigured(t *testing.T) {
+	if testing.Short() {
+		t.Skip("(skipped)")
+	}
+
+	it := echoprobe.NewIntegrationTest(t, echoprobe.IntegrationTestWithMocks{
+		BaseURL: "https://weather.com",
+	})
+
+	httpClient := http.Client{Transport: &http.Transport{}}
+	handler := NewApiHandler(&httpClient)
+
+	tests := []echoprobe.Data{
+		{
+			Name:       "regression: weather forecast should fail when Mock doesn't contain the custom http.Client",
+			Method:     http.MethodGet,
+			Handler:    handler.Weather,
+			ExpectCode: http.StatusServiceUnavailable,
 			Mocks: []echoprobe.MockCall{
 				{
 					Config: &echoprobe.MockConfig{

@@ -43,16 +43,18 @@ type Mock struct {
 }
 
 // NewMock creates a new Mock
-func NewMock(baseURL string, httpClient *http.Client) *Mock {
+func NewMock(baseURL string) *Mock {
 	return &Mock{
-		baseURL:    baseURL,
-		httpClient: httpClient,
+		baseURL: baseURL,
 	}
 }
 
 // TearDown removes all the registered mocks
 func (m *Mock) TearDown() {
 	gock.Off()
+	if m.httpClient != nil {
+		gock.RestoreClient(m.httpClient)
+	}
 }
 
 // Debug is used to print the request URL and the mock returned for that particular request
@@ -67,6 +69,10 @@ func (m *Mock) Debug() {
 			}
 		}
 	}()
+}
+
+func (m *Mock) SetHttpClient(httpClient *http.Client) {
+	m.httpClient = httpClient
 }
 
 func (m *Mock) SetJSON(response *gock.Response, config *MockConfig) {

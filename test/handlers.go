@@ -125,7 +125,9 @@ func NewApiHandler(httpClient *http.Client) *ApiHandler {
 // @Failure 503 {object} WeatherForecast "Service Unavailable"
 // @Router /weather/amsterdam [get]
 func (h *ApiHandler) Weather(ctx echo.Context) error {
-	res, err := h.HttpClient.Get("https://weather.com/forecast/amsterdam")
+	apiUrl := "https://weather.com/forecast/amsterdam"
+
+	res, err := h.HttpClient.Get(apiUrl)
 	if err != nil {
 		fmt.Println(err)
 		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
