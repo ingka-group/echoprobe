@@ -56,16 +56,17 @@ func (m *Mock) TearDown() {
 
 // Debug is used to print the request URL and the mock returned for that particular request
 func (m *Mock) Debug() {
-	gock.Observe(gock.DumpRequest)
+	gock.Observe(func(req *http.Request, mock gock.Mock) {
+		debug := fmt.Sprintf(
+			"\n-- MOCK START\n"+
+				"%s - %d \n"+
+				"%s \n"+
+				"-- MOCK END\n",
+			req.URL, mock.Response().StatusCode, string(mock.Response().BodyBuffer),
+		)
 
-	defer func() {
-		if !gock.IsDone() {
-			fmt.Println("Pending mocks:")
-			for _, mock := range gock.Pending() {
-				fmt.Printf("- %s %s\n", mock.Request().Method, mock.Request().URLStruct.String())
-			}
-		}
-	}()
+		fmt.Println(debug)
+	})
 }
 
 func (m *Mock) SetHttpClient(httpClient *http.Client) {
