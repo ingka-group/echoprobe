@@ -16,8 +16,8 @@ package test
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -129,7 +129,7 @@ func (h *ApiHandler) Weather(ctx echo.Context) error {
 
 	res, err := h.HttpClient.Get(apiUrl)
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("error fetching weather: %v", err)
 		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
 			Location: forecastLocation,
 			Summary:  failedSummary,
@@ -139,7 +139,7 @@ func (h *ApiHandler) Weather(ctx echo.Context) error {
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
+		log.Printf("Error reading response body: %v", err)
 		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
 			Location: forecastLocation,
 			Summary:  failedSummary,
@@ -147,16 +147,16 @@ func (h *ApiHandler) Weather(ctx echo.Context) error {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		fmt.Printf("Weather API returned status: %d\n", res.StatusCode)
+		log.Printf("Weather API returned status: %d", res.StatusCode)
 		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
 			Location: forecastLocation,
 			Summary:  failedSummary,
 		})
 	}
 
-	var weatherData map[string]any
+	var weatherData WeatherForecast
 	if err := json.Unmarshal(body, &weatherData); err != nil {
-		fmt.Println("Error parsing JSON:", err)
+		log.Printf("Error parsing JSON: %v", err)
 		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
 			Location: forecastLocation,
 			Summary:  failedSummary,
