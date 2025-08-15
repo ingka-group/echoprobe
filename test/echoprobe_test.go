@@ -79,7 +79,7 @@ func TestIntegrationHandler_MockWeatherWithCustomHttpClient(t *testing.T) {
 	httpClient := http.Client{Transport: &http.Transport{}}
 
 	it := echoprobe.NewIntegrationTest(t, echoprobe.IntegrationTestWithMocks{
-		BaseURL: "https://weather.com",
+		BaseURL: "https://weather.test",
 	})
 	it.Mock.SetHttpClient(&httpClient)
 
@@ -129,7 +129,7 @@ func TestIntegrationHandler_MockWeatherWithoutHttpClientConfigured(t *testing.T)
 	}
 
 	it := echoprobe.NewIntegrationTest(t, echoprobe.IntegrationTestWithMocks{
-		BaseURL: "https://weather.com",
+		BaseURL: "https://weather.test",
 	})
 
 	httpClient := http.Client{Transport: &http.Transport{}}
