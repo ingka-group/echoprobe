@@ -38,7 +38,8 @@ type MockConfig struct {
 
 // Mock is the struct that gives access to all the mocks
 type Mock struct {
-	baseURL string
+	baseURL    string
+	httpClient *http.Client
 }
 
 // NewMock creates a new Mock
@@ -68,6 +69,10 @@ func (m *Mock) Debug() {
 	})
 }
 
+func (m *Mock) SetHttpClient(httpClient *http.Client) {
+	m.httpClient = httpClient
+}
+
 func (m *Mock) SetJSON(response *gock.Response, config *MockConfig) {
 	var f Fixtures
 	if strings.TrimSpace(config.Response) != "" {
@@ -86,6 +91,9 @@ func (m *Mock) MockRequest(config *MockConfig) {
 	}
 
 	request := gock.New(m.baseURL)
+	if m.httpClient != nil {
+		gock.InterceptClient(m.httpClient)
+	}
 
 	switch config.Method {
 	case http.MethodGet:
