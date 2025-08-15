@@ -15,6 +15,9 @@
 package test
 
 import (
+	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -78,4 +81,86 @@ func (h *Handler) Live(ctx echo.Context) error {
 		ServiceStatus: statusHealthy,
 		Description:   descriptionHealthy,
 	})
+}
+
+// WeatherForecast provides information about the weather
+type WeatherForecast struct {
+	Location ForecastLocation `json:"location"`
+	Summary  ForecastSummary  `json:"summary"`
+} // @name WeatherForecast
+
+// ForecastLocation defines the location of the weather forecast.
+type ForecastLocation string // @name forecastLocation
+
+const (
+	forecastLocation ForecastLocation = "Amsterdam"
+)
+
+// ForecastSummary the specifics of the weather forecast.
+type ForecastSummary string // @name forecastSummary
+
+const (
+	failedSummary ForecastSummary = "Summary could not be loaded."
+)
+
+type ApiHandler struct {
+	HttpClient *http.Client
+}
+
+func NewApiHandler(httpClient *http.Client) *ApiHandler {
+	return &ApiHandler{
+		HttpClient: httpClient,
+	}
+}
+
+// Weather fetches the latest weather forecast for Amsterdam.
+//
+// @Summary Weather forecast
+// @Description Performs an external api call to get weather forecast
+// @Tags weather
+// @ID weather-forecast
+// @Produce json
+// @Success 200 {object} WeatherForecast "OK"
+// @Failure 503 {object} WeatherForecast "Service Unavailable"
+// @Router /weather/amsterdam [get]
+func (h *ApiHandler) Weather(ctx echo.Context) error {
+	apiUrl := "https://weather.test/forecast/amsterdam"
+
+	res, err := h.HttpClient.Get(apiUrl)
+	if err != nil {
+		log.Printf("error fetching weather: %v", err)
+		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
+			Location: forecastLocation,
+			Summary:  failedSummary,
+		})
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("Error reading response body: %v", err)
+		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
+			Location: forecastLocation,
+			Summary:  failedSummary,
+		})
+	}
+
+	if res.StatusCode != http.StatusOK {
+		log.Printf("Weather API returned status: %d", res.StatusCode)
+		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
+			Location: forecastLocation,
+			Summary:  failedSummary,
+		})
+	}
+
+	var weatherData WeatherForecast
+	if err := json.Unmarshal(body, &weatherData); err != nil {
+		log.Printf("Error parsing JSON: %v", err)
+		return ctx.JSON(http.StatusServiceUnavailable, WeatherForecast{
+			Location: forecastLocation,
+			Summary:  failedSummary,
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, weatherData)
 }

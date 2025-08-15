@@ -182,6 +182,24 @@ tests := []echoprobe.Data{
 echoprobe.AssertAll(it, tests)
 ```
 
+#### Intercepting a custom `http.Client`
+
+By default, echoprobe only listens to the baseUrl on the `http.DefaultClient`.
+When using a custom `http.Client` for HTTP calls, echoprobe should be notified.
+The custom client can be added after initializing the integration tests:
+
+```go
+it := echoprobe.NewIntegrationTest(
+    t,
+    echoprobe.IntegrationTestWithMocks{
+        BaseURL: "/v1",
+    },
+)
+
+client := http.Client{Transport: &http.Transport{}}
+it.Mock.SetHttpClient(&client)
+```
+
 ### With PostgreSQL and Mocks
 
 An integration test support various types of features all at once. In order to use PostgreSQL and Mocks, you can use the following example. Similarly, you can append other options to your integration test.
