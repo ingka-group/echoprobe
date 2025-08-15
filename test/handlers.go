@@ -100,8 +100,7 @@ const (
 type ForecastSummary string // @name forecastSummary
 
 const (
-	forecastSummary ForecastSummary = "Sunny, between 30 and 15 degrees celsius"
-	failedSummary   ForecastSummary = "Summary could not be loaded."
+	failedSummary ForecastSummary = "Summary could not be loaded."
 )
 
 type ApiHandler struct {
