@@ -4,15 +4,15 @@ go 1.24.1
 
 require (
 	github.com/docker/docker v28.3.3+incompatible
-	github.com/docker/go-connections v0.5.0
+	github.com/docker/go-connections v0.6.0
 	github.com/h2non/gock v1.2.0
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/lib/pq v1.10.9
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/testcontainers/testcontainers-go v0.38.0
 	github.com/xuri/excelize/v2 v2.9.1
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.30.0
+	gorm.io/gorm v1.30.1
 )
 
 require (
