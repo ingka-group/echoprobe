@@ -59,7 +59,10 @@ func setupBigqueryEmulator(ctx context.Context, dataPath string) (*BigqueryEmula
 			fmt.Sprintf("--data-from-yaml=%s", bqMountPath),
 		},
 		ExposedPorts: []string{bqHttpPort, bqGrpcPort},
-		WaitingFor:   wait.ForListeningPort(bqGrpcPort),
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort(bqGrpcPort),
+			wait.ForListeningPort(bqHttpPort),
+		),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
