@@ -26,7 +26,7 @@ runs:
   using: "composite"
   steps:
     - name: Set up Artifactory CLI
-      uses: jfrog/setup-jfrog-cli@v4
+      uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
       id: jf-oidc
       env:
         JF_URL: ${{ inputs.jf_url }}
