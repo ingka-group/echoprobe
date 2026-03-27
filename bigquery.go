@@ -39,14 +39,15 @@ type BigqueryEmulatorContainer struct {
 	BqGrpcPort int
 }
 
-func setupBigqueryEmulator(ctx context.Context, dataPath string) (*BigqueryEmulatorContainer, error) {
+func setupBigqueryEmulator(ctx context.Context, dataPath string, imagePlatform string) (*BigqueryEmulatorContainer, error) {
 	executionPath, err := testpath()
 	if err != nil {
 		return nil, err
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image: "ghcr.io/goccy/bigquery-emulator:latest",
+		Image:         "ghcr.io/goccy/bigquery-emulator:latest",
+		ImagePlatform: imagePlatform,
 		HostConfigModifier: func(config *container.HostConfig) {
 			config.Mounts = append(config.Mounts, mount.Mount{
 				Type:   mount.TypeBind,

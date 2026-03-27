@@ -122,10 +122,14 @@ func (o IntegrationTestWithMocks) tearDown(it *IntegrationTest) {
 // IntegrationTestWithBigQuery is an option for integration testing that sets up a BigQuery database test container.
 type IntegrationTestWithBigQuery struct {
 	DataPath string
+	// ImagePlatform overrides the Docker image platform (e.g. "linux/amd64").
+	// Leave empty to use the Docker daemon default.
+	// Required on Apple Silicon because ghcr.io/goccy/bigquery-emulator has no arm64 manifest.
+	ImagePlatform string
 }
 
 func (o IntegrationTestWithBigQuery) setup(it *IntegrationTest) {
-	container, err := setupBigqueryEmulator(context.Background(), o.DataPath)
+	container, err := setupBigqueryEmulator(context.Background(), o.DataPath, o.ImagePlatform)
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
 	}
