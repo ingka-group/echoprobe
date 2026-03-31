@@ -176,6 +176,7 @@ func TestIntegrationHandler_UploadFile(t *testing.T) {
 			ExpectCode:     http.StatusCreated,
 			ExpectResponse: "file-upload-ok",
 			Params: echoprobe.Params{
+				Body: "upload-body",
 				File: &echoprobe.FileUpload{
 					FieldName: "file",
 					Fixture:   "test.csv",
@@ -189,6 +190,7 @@ func TestIntegrationHandler_UploadFile(t *testing.T) {
 			ExpectCode:     http.StatusCreated,
 			ExpectResponse: "file-upload-ok",
 			Params: echoprobe.Params{
+				Body: "upload-body",
 				File: &echoprobe.FileUpload{
 					FieldName: "file",
 					Fixture:   "../uploads/test.csv",

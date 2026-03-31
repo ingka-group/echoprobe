@@ -184,8 +184,20 @@ func (h *ApiHandler) UploadFile(ctx echo.Context) error {
 		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "could not read uploaded file"})
 	}
 
+	// Collect all form fields (excluding the file)
+	formFields := make(map[string]string)
+	formParams, err := ctx.FormParams()
+	if err == nil {
+		for key, values := range formParams {
+			if len(values) > 0 {
+				formFields[key] = values[0]
+			}
+		}
+	}
+
 	return ctx.JSON(http.StatusCreated, map[string]interface{}{
 		"filename":       file.Filename,
 		"content_length": len(content),
+		"form_fields":    formFields,
 	})
 }

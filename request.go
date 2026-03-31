@@ -16,6 +16,8 @@ package echoprobe
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
@@ -27,8 +29,8 @@ import (
 
 // FileUpload defines the file to be uploaded in a multipart form request.
 type FileUpload struct {
-	FieldName string // the form field name for the file
-	Fixture   string // the fixture file path (if loading from fixtures)
+	FieldName string
+	Fixture   string
 }
 
 // Params define the parameters of a request.
@@ -57,8 +59,14 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
 		}
 
+		// Default field name to "file" if not provided
+		fieldName := strings.TrimSpace(params.File.FieldName)
+		if fieldName == "" {
+			fieldName = "file"
+		}
+
 		// Create form file
-		part, err := writer.CreateFormFile(params.File.FieldName, filepath.Base(params.File.Fixture))
+		part, err := writer.CreateFormFile(fieldName, filepath.Base(params.File.Fixture))
 		if err != nil {
 			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
 		}
@@ -67,12 +75,18 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
 		}
 
-		// Add body fields if present
+		// Add body fields as part of the multipart form if present
 		if strings.TrimSpace(params.Body) != "" {
-			params.Body = it.Fixtures.ReadRequestBody(params.Body)
-			err = writer.WriteField("body", params.Body)
-			if err != nil {
-				it.T.Fatalf("echoprobe: Request failed to write body field: %v", err)
+			bodyContent := it.Fixtures.ReadRequestBody(params.Body)
+			var bodyFields map[string]interface{}
+			if err := json.Unmarshal([]byte(bodyContent), &bodyFields); err != nil {
+				it.T.Fatalf("echoprobe: Request failed to parse body JSON: %v", err)
+			}
+			for key, value := range bodyFields {
+				err = writer.WriteField(key, fmt.Sprintf("%v", value))
+				if err != nil {
+					it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
+				}
 			}
 		}
 

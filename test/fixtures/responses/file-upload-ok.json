@@ -1,4 +1,7 @@
 {
-    "content_length":9927,
-    "filename":"test.csv"
+    "content_length":6287,
+    "filename":"test.csv",
+    "form_fields": {
+        "reset":"true"
+    }
 }
