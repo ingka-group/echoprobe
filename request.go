@@ -15,36 +15,89 @@
 package echoprobe
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http/httptest"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
 
+// FileUpload defines the file to be uploaded in a multipart form request.
+type FileUpload struct {
+	FieldName string // the form field name for the file
+	Fixture   string // the fixture file path (if loading from fixtures)
+}
+
 // Params define the parameters of a request.
 type Params struct {
 	Path  map[string]string
 	Query map[string][]string
 	Body  string
+	File  *FileUpload // file to upload in a multipart form request
 }
 
 // Request creates a new request and a new test service context to which it passes the required parameters.
-func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder) {
+func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder, error) {
 	var reader io.Reader
+	var contentType string
 
-	// If the body is not empty, read the body fixture and create a reader from it.
-	// NOTE: The body expects the filename of the fixture, not the content.
-	if strings.TrimSpace(params.Body) != "" {
-		params.Body = it.Fixtures.ReadRequestBody(params.Body)
-		reader = strings.NewReader(params.Body)
+	// Handle file upload with multipart form
+	if params.File != nil {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		// Get file content from fixture or direct content
+		var fileContent []byte
+		if params.File.Fixture != "" {
+			fileContent = it.Fixtures.ReadFileBytes(params.File.Fixture)
+		} else {
+			return nil, nil, fmt.Errorf("file content is required for file upload")
+		}
+
+		// Create form file
+		part, err := writer.CreateFormFile(params.File.FieldName, params.File.Fixture)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create form file: %w", err)
+		}
+		_, err = part.Write(fileContent)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file content: %w", err)
+		}
+
+		// Add body fields if present
+		if strings.TrimSpace(params.Body) != "" {
+			params.Body = it.Fixtures.ReadRequestBody(params.Body)
+			err = writer.WriteField("body", params.Body)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to write body field: %w", err)
+			}
+		}
+
+		err = writer.Close()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to close multipart writer: %w", err)
+		}
+
+		reader = body
+		contentType = writer.FormDataContentType()
+	} else {
+		// If the body is not empty, read the body fixture and create a reader from it.
+		// NOTE: The body expects the filename of the fixture, not the content.
+		if strings.TrimSpace(params.Body) != "" {
+			params.Body = it.Fixtures.ReadRequestBody(params.Body)
+			reader = strings.NewReader(params.Body)
+		}
+		contentType = echo.MIMEApplicationJSON
 	}
 
 	// 2nd parameter is supposed to be the URI but since we inject everything via context, we can ignore this
 	req := httptest.NewRequest(method, "/", reader)
 	req.Header.Set(
 		echo.HeaderContentType,
-		echo.MIMEApplicationJSON,
+		contentType,
 	)
 
 	response := httptest.NewRecorder()
@@ -75,5 +128,5 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 		}
 	}
 
-	return ctx, response
+	return ctx, response, nil
 }

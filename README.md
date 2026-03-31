@@ -331,6 +331,10 @@ func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Da
 }
 ```
 
+### Uploading files
+
+You can also upload files next to passing params by pointing the test case to a fixture to use as upload. The library will read the file and pass it as multipart form to the handler request.
+
 ### Testing
 
 To run the full set of tests you can execute the following command.

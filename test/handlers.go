@@ -164,3 +164,28 @@ func (h *ApiHandler) Weather(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusOK, weatherData)
 }
+
+// UploadFile handles file upload via multipart form.
+// opens the file, reads content and returns the filename and length of content
+func (h *ApiHandler) UploadFile(ctx echo.Context) error {
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "file is required"})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "could not open uploaded file"})
+	}
+	defer src.Close()
+
+	content, err := io.ReadAll(src)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "could not read uploaded file"})
+	}
+
+	return ctx.JSON(http.StatusCreated, map[string]interface{}{
+		"filename":       file.Filename,
+		"content_length": len(content),
+	})
+}
