@@ -16,8 +16,6 @@ package echoprobe
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
@@ -38,7 +36,13 @@ type Params struct {
 	Path  map[string]string
 	Query map[string][]string
 	Body  string
-	File  *FileUpload // file to upload in a multipart form request
+	Form  Form
+}
+
+// Form defines the parameters for a multipart form request.
+type Form struct {
+	File   *FileUpload // file to upload in a multipart form request
+	Fields map[string]string
 }
 
 // Request creates a new request and a new test service context to which it passes the required parameters.
@@ -46,27 +50,34 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 	var reader io.Reader
 	var contentType string
 
+	// Validate that multipart form and body are not combined
+	hasMultipart := params.Form.File != nil || params.Form.Fields != nil
+	hasBody := strings.TrimSpace(params.Body) != ""
+	if hasMultipart && hasBody {
+		it.T.Fatalf("echoprobe: Request failed: cannot combine multipart form with body")
+	}
+
 	// Handle file upload with multipart form
-	if params.File != nil {
+	if params.Form.File != nil {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 
 		// Get file content from fixture
 		var fileContent []byte
-		if params.File.Fixture != "" {
-			fileContent = it.Fixtures.ReadFileBytes(params.File.Fixture)
+		if params.Form.File.Fixture != "" {
+			fileContent = it.Fixtures.ReadFileBytes(params.Form.File.Fixture)
 		} else {
 			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
 		}
 
 		// Default field name to "file" if not provided
-		fieldName := strings.TrimSpace(params.File.FieldName)
+		fieldName := strings.TrimSpace(params.Form.File.FieldName)
 		if fieldName == "" {
 			fieldName = "file"
 		}
 
 		// Create form file
-		part, err := writer.CreateFormFile(fieldName, filepath.Base(params.File.Fixture))
+		part, err := writer.CreateFormFile(fieldName, filepath.Base(params.Form.File.Fixture))
 		if err != nil {
 			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
 		}
@@ -75,15 +86,10 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
 		}
 
-		// Add body fields as part of the multipart form if present
-		if strings.TrimSpace(params.Body) != "" {
-			bodyContent := it.Fixtures.ReadRequestBody(params.Body)
-			var bodyFields map[string]interface{}
-			if err := json.Unmarshal([]byte(bodyContent), &bodyFields); err != nil {
-				it.T.Fatalf("echoprobe: Request failed to parse body JSON: %v", err)
-			}
-			for key, value := range bodyFields {
-				err = writer.WriteField(key, fmt.Sprintf("%v", value))
+		// Add form fields as part of the multipart form if present
+		if params.Form.Fields != nil {
+			for key, value := range params.Form.Fields {
+				err = writer.WriteField(key, value)
 				if err != nil {
 					it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
 				}
