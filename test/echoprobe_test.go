@@ -182,6 +182,19 @@ func TestIntegrationHandler_UploadFile(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:           "ok: upload file via path to fixture",
+			Method:         http.MethodPost,
+			Handler:        handler.UploadFile,
+			ExpectCode:     http.StatusCreated,
+			ExpectResponse: "file-upload-ok",
+			Params: echoprobe.Params{
+				File: &echoprobe.FileUpload{
+					FieldName: "file",
+					Fixture:   "../uploads/test.csv",
+				},
+			},
+		},
 	}
 
 	echoprobe.AssertAll(it, tests)
