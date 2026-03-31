@@ -333,7 +333,7 @@ func AssertAllWithCustomContext(it *echoprobe.IntegrationTest, tt []echoprobe.Da
 
 ### Uploading files
 
-You can also upload files next to passing params by pointing the test case to a fixture to use as upload. The library will read the file and pass it as multipart form to the handler request.
+You can also upload files next to passing params by pointing the test case to a fixture to use as upload. The library will read the file and pass it as multipart form to the handler request. You need to store the file you want to upload under `uploads` in the `fixtures` folder. For example, `fixtures/uploads/my_file.json`. The contents of `Body` that you attach to the test case will also be added as multipart to the request rather than being passed as regular request body.
 
 ### Testing
 
