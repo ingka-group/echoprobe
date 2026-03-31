@@ -166,7 +166,7 @@ func (h *ApiHandler) Weather(ctx echo.Context) error {
 }
 
 // UploadFile handles file upload via multipart form.
-// opens the file, reads content and returns the filename and length of content
+// Opens the file, reads content and returns the filename and length of content
 func (h *ApiHandler) UploadFile(ctx echo.Context) error {
 	file, err := ctx.FormFile("file")
 	if err != nil {
