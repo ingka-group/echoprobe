@@ -94,13 +94,10 @@ func AssertAll(it *IntegrationTest, tt []Data) {
 		LoadMocks(it, &t)
 
 		// create request and context for the handler function
-		ctx, response, err := Request(it, t.Method, t.Params)
-		if err != nil {
-			it.T.Log(err.Error())
-		}
+		ctx, response := Request(it, t.Method, t.Params)
 
 		// call handler function
-		err = t.Handler(ctx)
+		err := t.Handler(ctx)
 		if err != nil {
 			it.T.Log(err.Error())
 		}

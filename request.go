@@ -16,10 +16,10 @@ package echoprobe
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -40,7 +40,7 @@ type Params struct {
 }
 
 // Request creates a new request and a new test service context to which it passes the required parameters.
-func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder, error) {
+func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder) {
 	var reader io.Reader
 	var contentType string
 
@@ -49,22 +49,22 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 
-		// Get file content from fixture or direct content
+		// Get file content from fixture
 		var fileContent []byte
 		if params.File.Fixture != "" {
 			fileContent = it.Fixtures.ReadFileBytes(params.File.Fixture)
 		} else {
-			return nil, nil, fmt.Errorf("file content is required for file upload")
+			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
 		}
 
 		// Create form file
-		part, err := writer.CreateFormFile(params.File.FieldName, params.File.Fixture)
+		part, err := writer.CreateFormFile(params.File.FieldName, filepath.Base(params.File.Fixture))
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create form file: %w", err)
+			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
 		}
 		_, err = part.Write(fileContent)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to write file content: %w", err)
+			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
 		}
 
 		// Add body fields if present
@@ -72,13 +72,13 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 			params.Body = it.Fixtures.ReadRequestBody(params.Body)
 			err = writer.WriteField("body", params.Body)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to write body field: %w", err)
+				it.T.Fatalf("echoprobe: Request failed to write body field: %v", err)
 			}
 		}
 
 		err = writer.Close()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to close multipart writer: %w", err)
+			it.T.Fatalf("echoprobe: Request failed to close multipart writer: %v", err)
 		}
 
 		reader = body
@@ -128,5 +128,5 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 		}
 	}
 
-	return ctx, response, nil
+	return ctx, response
 }
