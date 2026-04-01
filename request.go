@@ -36,7 +36,7 @@ type Params struct {
 	Path  map[string]string
 	Query map[string][]string
 	Body  string
-	Form  Form
+	Form  *Form
 }
 
 // Form defines the parameters for a multipart form request.
@@ -51,58 +51,61 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 	var contentType string
 
 	// Validate that multipart form and body are not combined
-	hasMultipart := params.Form.File != nil || params.Form.Fields != nil
+	hasMultipart := params.Form != nil
 	hasBody := strings.TrimSpace(params.Body) != ""
 	if hasMultipart && hasBody {
 		it.T.Fatalf("echoprobe: Request failed: cannot combine multipart form with body")
 	}
 
-	// Handle file upload with multipart form
-	if params.Form.File != nil {
+	if hasMultipart {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 
-		// Get file content from fixture
-		var fileContent []byte
-		if params.Form.File.Fixture != "" {
-			fileContent = it.Fixtures.ReadFileBytes(params.Form.File.Fixture)
-		} else {
-			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
+		if params.Form.File != nil {
+			// Get file content from fixture
+			var fileContent []byte
+			if params.Form.File.Fixture != "" {
+				fileContent = it.Fixtures.ReadFileBytes(params.Form.File.Fixture)
+			} else {
+				it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
+			}
+
+			// Default field name to "file" if not provided
+			fieldName := strings.TrimSpace(params.Form.File.FieldName)
+			if fieldName == "" {
+				fieldName = "file"
+			}
+
+			// Create form file
+			part, err := writer.CreateFormFile(fieldName, filepath.Base(params.Form.File.Fixture))
+			if err != nil {
+				it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
+			}
+			_, err = part.Write(fileContent)
+			if err != nil {
+				it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
+			}
+
+			reader = body
+			contentType = writer.FormDataContentType()
 		}
 
-		// Default field name to "file" if not provided
-		fieldName := strings.TrimSpace(params.Form.File.FieldName)
-		if fieldName == "" {
-			fieldName = "file"
-		}
-
-		// Create form file
-		part, err := writer.CreateFormFile(fieldName, filepath.Base(params.Form.File.Fixture))
-		if err != nil {
-			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
-		}
-		_, err = part.Write(fileContent)
-		if err != nil {
-			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
-		}
-
-		// Add form fields as part of the multipart form if present
 		if params.Form.Fields != nil {
-			for key, value := range params.Form.Fields {
-				err = writer.WriteField(key, value)
-				if err != nil {
-					it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
+			// Add form fields as part of the multipart form if present
+			if params.Form.Fields != nil {
+				for key, value := range params.Form.Fields {
+					err := writer.WriteField(key, value)
+					if err != nil {
+						it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
+					}
 				}
 			}
 		}
 
-		err = writer.Close()
+		err := writer.Close()
 		if err != nil {
 			it.T.Fatalf("echoprobe: Request failed to close multipart writer: %v", err)
 		}
-
-		reader = body
-		contentType = writer.FormDataContentType()
 	} else {
 		// If the body is not empty, read the body fixture and create a reader from it.
 		// NOTE: The body expects the filename of the fixture, not the content.

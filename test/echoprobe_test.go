@@ -176,7 +176,7 @@ func TestIntegrationHandler_UploadFile(t *testing.T) {
 			ExpectCode:     http.StatusCreated,
 			ExpectResponse: "file-upload-ok",
 			Params: echoprobe.Params{
-				Form: echoprobe.Form{
+				Form: &echoprobe.Form{
 					Fields: map[string]string{
 						"reset": "true",
 					},
@@ -194,7 +194,7 @@ func TestIntegrationHandler_UploadFile(t *testing.T) {
 			ExpectCode:     http.StatusCreated,
 			ExpectResponse: "file-upload-ok",
 			Params: echoprobe.Params{
-				Form: echoprobe.Form{
+				Form: &echoprobe.Form{
 					Fields: map[string]string{
 						"reset": "true",
 					},
