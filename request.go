@@ -137,11 +137,10 @@ func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
 		}
 	}
 
-	if form.Fields != nil {
-		for key, value := range form.Fields {
-			if err := writer.WriteField(key, value); err != nil {
-				it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
-			}
+	// add form fields
+	for key, value := range form.Fields {
+		if err := writer.WriteField(key, value); err != nil {
+			it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
 		}
 	}
 
