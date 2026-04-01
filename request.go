@@ -140,8 +140,7 @@ func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
 
 	if form.Fields != nil {
 		for key, value := range form.Fields {
-			err := writer.WriteField(key, value)
-			if err != nil {
+			if err := writer.WriteField(key, value); err != nil {
 				it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
 			}
 		}
