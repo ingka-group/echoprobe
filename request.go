@@ -132,8 +132,7 @@ func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
 		if err != nil {
 			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
 		}
-		_, err = part.Write(fileContent)
-		if err != nil {
+		if _, err = part.Write(fileContent); err != nil {
 			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
 		}
 	}
