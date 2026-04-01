@@ -91,13 +91,10 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 		}
 
 		if params.Form.Fields != nil {
-			// Add form fields as part of the multipart form if present
-			if params.Form.Fields != nil {
-				for key, value := range params.Form.Fields {
-					err := writer.WriteField(key, value)
-					if err != nil {
-						it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
-					}
+			for key, value := range params.Form.Fields {
+				err := writer.WriteField(key, value)
+				if err != nil {
+					it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
 				}
 			}
 		}
