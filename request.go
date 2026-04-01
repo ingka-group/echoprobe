@@ -117,7 +117,7 @@ func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
 		var fileContent []byte
 		if form.File.Fixture == "" {
 			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
-		} 
+		}
 		fileContent = it.Fixtures.ReadFileBytes(form.File.Fixture)
 
 		// Default field name to "file" if not provided
