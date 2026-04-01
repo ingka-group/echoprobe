@@ -155,3 +155,57 @@ func TestIntegrationHandler_MockWeatherWithoutHttpClientConfigured(t *testing.T)
 
 	echoprobe.AssertAll(it, tests)
 }
+
+func TestIntegrationHandler_UploadFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("(skipped)")
+	}
+
+	it := echoprobe.NewIntegrationTest(t)
+	defer func() {
+		it.TearDown()
+	}()
+
+	handler := NewApiHandler(nil)
+
+	tests := []echoprobe.Data{
+		{
+			Name:           "ok: upload file",
+			Method:         http.MethodPost,
+			Handler:        handler.UploadFile,
+			ExpectCode:     http.StatusCreated,
+			ExpectResponse: "file-upload-ok",
+			Params: echoprobe.Params{
+				Form: &echoprobe.Form{
+					Fields: map[string]string{
+						"reset": "true",
+					},
+					File: &echoprobe.FileUpload{
+						FieldName: "file",
+						Fixture:   "test.csv",
+					},
+				},
+			},
+		},
+		{
+			Name:           "ok: upload file via path to fixture",
+			Method:         http.MethodPost,
+			Handler:        handler.UploadFile,
+			ExpectCode:     http.StatusCreated,
+			ExpectResponse: "file-upload-ok",
+			Params: echoprobe.Params{
+				Form: &echoprobe.Form{
+					Fields: map[string]string{
+						"reset": "true",
+					},
+					File: &echoprobe.FileUpload{
+						FieldName: "file",
+						Fixture:   "../uploads/test.csv",
+					},
+				},
+			},
+		},
+	}
+
+	echoprobe.AssertAll(it, tests)
+}

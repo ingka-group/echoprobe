@@ -15,36 +15,65 @@
 package echoprobe
 
 import (
+	"bytes"
 	"io"
+	"mime/multipart"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
+
+// FileUpload defines the file to be uploaded in a multipart form request.
+type FileUpload struct {
+	FieldName string
+	Fixture   string
+}
 
 // Params define the parameters of a request.
 type Params struct {
 	Path  map[string]string
 	Query map[string][]string
 	Body  string
+	Form  *Form
+}
+
+// Form defines the parameters for a multipart form request.
+type Form struct {
+	File   *FileUpload // file to upload in a multipart form request
+	Fields map[string]string
 }
 
 // Request creates a new request and a new test service context to which it passes the required parameters.
 func Request(it *IntegrationTest, method string, params Params) (echo.Context, *httptest.ResponseRecorder) {
 	var reader io.Reader
+	var contentType string
 
-	// If the body is not empty, read the body fixture and create a reader from it.
-	// NOTE: The body expects the filename of the fixture, not the content.
-	if strings.TrimSpace(params.Body) != "" {
-		params.Body = it.Fixtures.ReadRequestBody(params.Body)
-		reader = strings.NewReader(params.Body)
+	// Validate that multipart form and body are not combined
+	hasMultipart := params.Form != nil
+	hasBody := strings.TrimSpace(params.Body) != ""
+	if hasMultipart && hasBody {
+		it.T.Fatalf("echoprobe: Request failed: cannot combine multipart form with body")
+	}
+
+	if hasMultipart {
+		reader, contentType = handleMultipart(it, params.Form)
+	} else {
+		// If the body is not empty, read the body fixture and create a reader from it.
+		// NOTE: The body expects the filename of the fixture, not the content.
+		if strings.TrimSpace(params.Body) != "" {
+			params.Body = it.Fixtures.ReadRequestBody(params.Body)
+			reader = strings.NewReader(params.Body)
+		}
+		contentType = echo.MIMEApplicationJSON
 	}
 
 	// 2nd parameter is supposed to be the URI but since we inject everything via context, we can ignore this
 	req := httptest.NewRequest(method, "/", reader)
 	req.Header.Set(
 		echo.HeaderContentType,
-		echo.MIMEApplicationJSON,
+		contentType,
 	)
 
 	response := httptest.NewRecorder()
@@ -76,4 +105,47 @@ func Request(it *IntegrationTest, method string, params Params) (echo.Context, *
 	}
 
 	return ctx, response
+}
+
+// handleMultipart creates a multipart form body from the provided form parameters.
+func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	if form.File != nil {
+		// Get file content from fixture
+		var fileContent []byte
+		if form.File.Fixture == "" {
+			it.T.Fatalf("echoprobe: Request failed: no fixture provided for file upload")
+		}
+		fileContent = it.Fixtures.ReadFileBytes(form.File.Fixture)
+
+		// Default field name to "file" if not provided
+		fieldName := strings.TrimSpace(form.File.FieldName)
+		if fieldName == "" {
+			fieldName = "file"
+		}
+
+		// Create form file
+		part, err := writer.CreateFormFile(fieldName, filepath.Base(form.File.Fixture))
+		if err != nil {
+			it.T.Fatalf("echoprobe: Request failed to create form file: %v", err)
+		}
+		if _, err = part.Write(fileContent); err != nil {
+			it.T.Fatalf("echoprobe: Request failed to write file content: %v", err)
+		}
+	}
+
+	// add form fields
+	for key, value := range form.Fields {
+		if err := writer.WriteField(key, value); err != nil {
+			it.T.Fatalf("echoprobe: Request failed to write field %s: %v", key, err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		it.T.Fatalf("echoprobe: Request failed to close multipart writer: %v", err)
+	}
+
+	return body, writer.FormDataContentType()
 }

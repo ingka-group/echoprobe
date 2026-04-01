@@ -76,6 +76,22 @@ func (f Fixtures) ReadFixture(filename, dir string) string {
 	return string(buf)
 }
 
+// ReadFileBytes reads a file from the uploads fixtures directory and returns the raw bytes.
+func (f Fixtures) ReadFileBytes(filename string) []byte {
+	executionPath, err := testpath()
+	if err != nil {
+		log.Fatalf("could not find test path: %v", err)
+	}
+
+	path := fmt.Sprintf("%s/fixtures/uploads/%s", executionPath, filename)
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("could not read file '%s': %v", path, err)
+	}
+
+	return buf
+}
+
 func (f Fixtures) ExcelToMap(content []byte) (map[string][][]string, error) {
 	file, err := bytesToExcel(content)
 	if err != nil {
