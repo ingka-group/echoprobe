@@ -147,8 +147,7 @@ func handleMultipart(it *IntegrationTest, form *Form) (io.Reader, string) {
 		}
 	}
 
-	err := writer.Close()
-	if err != nil {
+	if err := writer.Close(); err != nil {
 		it.T.Fatalf("echoprobe: Request failed to close multipart writer: %v", err)
 	}
 
