@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/labstack/echo/v4"
@@ -62,6 +63,23 @@ func (it *IntegrationTest) TearDown() {
 	}
 }
 
+// waitForDatabaseReady waits for the database to be fully initialized and responsive.
+// It retries a simple query until it succeeds or the timeout is reached.
+func waitForDatabaseReady(db *gorm.DB) error {
+	const maxRetries = 30
+	const retryInterval = 100 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		// Execute a simple query to verify database is ready
+		if err := db.Exec("SELECT 1").Error; err == nil {
+			return nil
+		}
+		time.Sleep(retryInterval)
+	}
+
+	return fmt.Errorf("database did not become ready within timeout")
+}
+
 // IntegrationTestOption is an interface for integration test options.
 type IntegrationTestOption interface {
 	setup(*IntegrationTest)
@@ -93,6 +111,12 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)
+	}
+
+	// Synchronization point: ensure the SQL script has completed successfully
+	err = waitForDatabaseReady(db)
+	if err != nil {
+		it.T.Fatalf("database ready check error: %v", err)
 	}
 
 	it.Db = db
