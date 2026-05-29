@@ -17,7 +17,7 @@ package echoprobe
 import (
 	"context"
 	"fmt"
-	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -46,6 +46,8 @@ type PostgresDBContainer struct {
 }
 
 // setupPostgresDB sets up a postgres database test container.
+// Init SQL scripts are mounted into /docker-entrypoint-initdb.d/ so Postgres
+// executes them during its own initialization, before accepting TCP connections.
 func setupPostgresDB(ctx context.Context, version string, initSQLScript ...string) (*PostgresDBContainer, error) {
 	if version == "" {
 		version = defaultPostgresVersion
@@ -61,20 +63,27 @@ func setupPostgresDB(ctx context.Context, version string, initSQLScript ...strin
 		WaitingFor:   wait.ForSQL(dbPort, "postgres", dbURL),
 	}
 
+	if len(initSQLScript) > 0 && strings.TrimSpace(initSQLScript[0]) != "" {
+		executionPath, err := testpath()
+		if err != nil {
+			return nil, fmt.Errorf("resolving fixture path: %w", err)
+		}
+
+		req.Files = []testcontainers.ContainerFile{
+			{
+				HostFilePath:      filepath.Join(executionPath, "fixtures", initSQLScript[0]),
+				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScript[0]),
+				FileMode:          0644,
+			},
+		}
+	}
+
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	// If init script path is provided, initialize the database using the script.
-	if strings.TrimSpace(initSQLScript[0]) != "" {
-		err = initDB(container, initSQLScript[0])
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	hostIP, err := container.Host(ctx)
@@ -103,46 +112,4 @@ func dbURL(host string, port string) string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, dbName,
 	)
-}
-
-// initDB initializes the database using the provided script.
-func initDB(container testcontainers.Container, filename string) error {
-	executionPath, err := testpath()
-	if err != nil {
-		return err
-	}
-
-	containerPath := fmt.Sprintf("/%s", filename)
-
-	// Copy the script from the host path to the container
-	err = container.CopyFileToContainer(
-		context.Background(),
-		fmt.Sprintf(
-			"%s/fixtures/%s", executionPath, filename,
-		),
-		containerPath,
-		0544,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Execute the script
-	stdout, stderr, err := container.Exec(context.Background(), []string{
-		"bash",
-		"-c",
-		fmt.Sprintf(
-			"export PGPASSWORD=%s && psql -U %s -d %s -f %s",
-			dbPassword, dbUsername, dbName, containerPath,
-		),
-	})
-
-	log.Println("[stdout] container exec: ", stdout)
-	log.Println("[stderr] container exec: ", stderr)
-
-	if err != nil {
-		return err
-	}
-
-	return err
 }
