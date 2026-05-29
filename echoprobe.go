@@ -16,7 +16,7 @@ package echoprobe
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -88,7 +88,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 
 	it.Container = dbContainer
 
-	dsn := dbURL(dbContainer.DBHost, fmt.Sprintf("%d", dbContainer.DBPort))
+	dsn := dbURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort))
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)
