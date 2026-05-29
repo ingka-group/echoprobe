@@ -27,10 +27,11 @@ import (
 )
 
 const (
-	dbName     = "postgres"
-	dbUsername = "postgres"
-	dbPassword = "password"
-	dbPort     = "5432/tcp"
+	defaultPostgresImage = "postgres:17-alpine"
+	dbName               = "postgres"
+	dbUsername            = "postgres"
+	dbPassword           = "password"
+	dbPort               = "5432/tcp"
 )
 
 // PostgresDBContainer holds all the necessary information for postgres database test container.
@@ -45,9 +46,13 @@ type PostgresDBContainer struct {
 }
 
 // setupPostgresDB sets up a postgres database test container.
-func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBContainer, error) {
+func setupPostgresDB(ctx context.Context, image string, initSQLScript ...string) (*PostgresDBContainer, error) {
+	if image == "" {
+		image = defaultPostgresImage
+	}
+
 	req := testcontainers.ContainerRequest{
-		Image: "postgres:latest",
+		Image: image,
 		Env: map[string]string{
 			"POSTGRES_USER":     dbUsername,
 			"POSTGRES_PASSWORD": dbPassword,
