@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
@@ -95,7 +94,7 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 	return &PostgresDBContainer{
 		Container:  container,
 		DBHost:     hostIP,
-		DBPort:     mappedPort.Int(),
+		DBPort:     int(mappedPort.Num()),
 		DBName:     dbName,
 		DBUsername: dbUsername,
 		DBPassword: dbPassword,
@@ -103,8 +102,9 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 }
 
 // dbURL returns the postgres database URL.
-func dbURL(host string, port nat.Port) string {
+func dbURL(host string, port string) string {
+	port, _, _ = strings.Cut(port, "/")
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port.Port(), dbName,
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, dbName,
 	)
 }

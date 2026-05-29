@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -91,7 +91,7 @@ func setupBigqueryEmulator(ctx context.Context, dataPath string) (*BigqueryEmula
 	return &BigqueryEmulatorContainer{
 		Container:  container,
 		BqHost:     hostIP,
-		BqRestPort: mappedHttpPort.Int(),
-		BqGrpcPort: mappedGrpcPort.Int(),
+		BqRestPort: int(mappedHttpPort.Num()),
+		BqGrpcPort: int(mappedGrpcPort.Num()),
 	}, nil
 }
