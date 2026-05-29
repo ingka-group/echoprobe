@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -89,7 +88,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 
 	it.Container = dbContainer
 
-	dsn := dbURL(dbContainer.DBHost, nat.Port(fmt.Sprintf("%d/tcp", dbContainer.DBPort)))
+	dsn := dbURL(dbContainer.DBHost, fmt.Sprintf("%d", dbContainer.DBPort))
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)
