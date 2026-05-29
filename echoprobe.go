@@ -71,7 +71,7 @@ type IntegrationTestOption interface {
 // In the InitSQLScript a SQL script filename can be passed to initialize the database. The script should be located
 // under a 'fixtures' directory where the _test.go file is located. An optional gorm config can also be passed.
 type IntegrationTestWithPostgres struct {
-	Image         string
+	Version       string
 	InitSQLScript string
 	Config        *gorm.Config
 }
@@ -82,7 +82,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		o.Config = &gorm.Config{}
 	}
 
-	dbContainer, err := setupPostgresDB(context.Background(), o.Image, o.InitSQLScript)
+	dbContainer, err := setupPostgresDB(context.Background(), o.Version, o.InitSQLScript)
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
 	}
@@ -121,12 +121,12 @@ func (o IntegrationTestWithMocks) tearDown(it *IntegrationTest) {
 
 // IntegrationTestWithBigQuery is an option for integration testing that sets up a BigQuery database test container.
 type IntegrationTestWithBigQuery struct {
-	Image    string
+	Version  string
 	DataPath string
 }
 
 func (o IntegrationTestWithBigQuery) setup(it *IntegrationTest) {
-	container, err := setupBigqueryEmulator(context.Background(), o.Image, o.DataPath)
+	container, err := setupBigqueryEmulator(context.Background(), o.Version, o.DataPath)
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
 	}

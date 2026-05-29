@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	defaultBigqueryImage = "ghcr.io/goccy/bigquery-emulator:latest"
-	bqMountPath          = "/mnt/data.yaml"
-	bqHttpPort           = "9050/tcp"
-	bqGrpcPort           = "9060/tcp"
-	bqProject            = "test"
+	defaultBigqueryVersion = "latest"
+	bqMountPath            = "/mnt/data.yaml"
+	bqHttpPort             = "9050/tcp"
+	bqGrpcPort             = "9060/tcp"
+	bqProject              = "test"
 )
 
 type BigqueryEmulatorContainer struct {
@@ -40,9 +40,9 @@ type BigqueryEmulatorContainer struct {
 	BqGrpcPort int
 }
 
-func setupBigqueryEmulator(ctx context.Context, image string, dataPath string) (*BigqueryEmulatorContainer, error) {
-	if image == "" {
-		image = defaultBigqueryImage
+func setupBigqueryEmulator(ctx context.Context, version string, dataPath string) (*BigqueryEmulatorContainer, error) {
+	if version == "" {
+		version = defaultBigqueryVersion
 	}
 
 	executionPath, err := testpath()
@@ -51,7 +51,7 @@ func setupBigqueryEmulator(ctx context.Context, image string, dataPath string) (
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image: image,
+		Image: "ghcr.io/goccy/bigquery-emulator:" + version,
 		HostConfigModifier: func(config *container.HostConfig) {
 			config.Mounts = append(config.Mounts, mount.Mount{
 				Type:   mount.TypeBind,

@@ -70,12 +70,13 @@ echoprobe.AssertAll(it, tests)
 
 ### With PostgreSQL
 
-To use PostgreSQL in your integration test, you need to pass the `IntegrationTestWithPostgres` option to the `NewIntegrationTest` function. _Optionally_, you can initialize your database using a SQL script, that will be executed before the test starts. The script should contain the necessary DDL and DML statements to prepare the database for the test. The script must be present under `fixtures`. For example, `fixtures/init-db.sql`.
+To use PostgreSQL in your integration test, you need to pass the `IntegrationTestWithPostgres` option to the `NewIntegrationTest` function. You can pin a specific Postgres version using the `Version` field (defaults to `17-alpine`). _Optionally_, you can initialize your database using a SQL script, that will be executed before the test starts. The script should contain the necessary DDL and DML statements to prepare the database for the test. The script must be present under `fixtures`. For example, `fixtures/init-db.sql`.
 
 ```golang
 it := echoprobe.NewIntegrationTest(
     t,
     echoprobe.IntegrationTestWithPostgres{
+        Version:       "16-alpine",
         InitSQLScript: "init-db.sql",
     },
 )
@@ -95,7 +96,7 @@ echoprobe.AssertAll(it, tests)
 
 ### With BigQuery
 
-`echoprobe` supports testing with BigQuery using `ghcr.io/goccy/bigquery-emulator` as a test contair. To use BigQuery in your integration test, you need to pass the `IntegrationTestWithBigQuery` option to the `NewIntegrationTest` function. It is expected that BigQuery needs to be populated with data upon the test startup. To do that, you need to provide a `.yaml` under the `fixtures/bigquery` directory.
+`echoprobe` supports testing with BigQuery using `ghcr.io/goccy/bigquery-emulator` as a test container. To use BigQuery in your integration test, you need to pass the `IntegrationTestWithBigQuery` option to the `NewIntegrationTest` function. You can pin a specific emulator version using the `Version` field (defaults to `latest`). It is expected that BigQuery needs to be populated with data upon the test startup. To do that, you need to provide a `.yaml` under the `fixtures/bigquery` directory.
 The YAML file should contain the necessary format so that BigQuery emulator can mount the data in the container.
 
 ```golang
