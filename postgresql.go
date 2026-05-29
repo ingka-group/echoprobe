@@ -17,8 +17,9 @@ package echoprobe
 import (
 	"context"
 	"fmt"
-	"log"
+	"io"
 	"strings"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
@@ -54,7 +55,14 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 			"POSTGRES_PASSWORD": dbPassword,
 		},
 		ExposedPorts: []string{dbPort},
-		WaitingFor:   wait.ForSQL(dbPort, "postgres", dbURL),
+		// The Postgres Docker image has a multi-phase startup: it starts temporarily to
+		// initialize the database cluster, shuts down, then starts again for real.
+		// wait.ForSQL can latch onto the first (temporary) startup, causing subsequent
+		// commands to fail during the restart window. Waiting for the "ready" log message
+		// twice ensures we only proceed after the final startup.
+		WaitingFor: wait.ForLog("database system is ready to accept connections").
+			WithOccurrence(2).
+			WithStartupTimeout(30 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -122,22 +130,23 @@ func initDB(container testcontainers.Container, filename string) error {
 		return err
 	}
 
-	// Execute the script
-	stdout, stderr, err := container.Exec(context.Background(), []string{
+	// Execute the script with ON_ERROR_STOP so psql exits non-zero on any SQL error.
+	exitCode, output, err := container.Exec(context.Background(), []string{
 		"bash",
 		"-c",
 		fmt.Sprintf(
-			"export PGPASSWORD=%s && psql -U %s -d %s -f %s",
+			"export PGPASSWORD=%s && psql --set ON_ERROR_STOP=1 -U %s -d %s -f %s",
 			dbPassword, dbUsername, dbName, containerPath,
 		),
 	})
-
-	log.Println("[stdout] container exec: ", stdout)
-	log.Println("[stderr] container exec: ", stderr)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("initDB exec failed: %w", err)
 	}
 
-	return err
+	if exitCode != 0 {
+		out, _ := io.ReadAll(output)
+		return fmt.Errorf("initDB script exited with code %d: %s", exitCode, string(out))
+	}
+
+	return nil
 }
