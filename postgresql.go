@@ -17,9 +17,8 @@ package echoprobe
 import (
 	"context"
 	"fmt"
-	"io"
+	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
@@ -47,6 +46,8 @@ type PostgresDBContainer struct {
 }
 
 // setupPostgresDB sets up a postgres database test container.
+// Init SQL scripts are mounted into /docker-entrypoint-initdb.d/ so Postgres
+// executes them during its own initialization, before accepting TCP connections.
 func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBContainer, error) {
 	req := testcontainers.ContainerRequest{
 		Image: "postgres:latest",
@@ -55,14 +56,22 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 			"POSTGRES_PASSWORD": dbPassword,
 		},
 		ExposedPorts: []string{dbPort},
-		// The Postgres Docker image has a multi-phase startup: it starts temporarily to
-		// initialize the database cluster, shuts down, then starts again for real.
-		// wait.ForSQL can latch onto the first (temporary) startup, causing subsequent
-		// commands to fail during the restart window. Waiting for the "ready" log message
-		// twice ensures we only proceed after the final startup.
-		WaitingFor: wait.ForLog("database system is ready to accept connections").
-			WithOccurrence(2).
-			WithStartupTimeout(30 * time.Second),
+		WaitingFor:   wait.ForSQL(dbPort, "postgres", dbURL),
+	}
+
+	if len(initSQLScript) > 0 && strings.TrimSpace(initSQLScript[0]) != "" {
+		executionPath, err := testpath()
+		if err != nil {
+			return nil, fmt.Errorf("resolving fixture path: %w", err)
+		}
+
+		req.Files = []testcontainers.ContainerFile{
+			{
+				HostFilePath:      filepath.Join(executionPath, "fixtures", initSQLScript[0]),
+				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScript[0]),
+				FileMode:          0644,
+			},
+		}
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -71,14 +80,6 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	// If init script path is provided, initialize the database using the script.
-	if strings.TrimSpace(initSQLScript[0]) != "" {
-		err = initDB(container, initSQLScript[0])
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	hostIP, err := container.Host(ctx)
@@ -106,47 +107,4 @@ func dbURL(host string, port nat.Port) string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port.Port(), dbName,
 	)
-}
-
-// initDB initializes the database using the provided script.
-func initDB(container testcontainers.Container, filename string) error {
-	executionPath, err := testpath()
-	if err != nil {
-		return err
-	}
-
-	containerPath := fmt.Sprintf("/%s", filename)
-
-	// Copy the script from the host path to the container
-	err = container.CopyFileToContainer(
-		context.Background(),
-		fmt.Sprintf(
-			"%s/fixtures/%s", executionPath, filename,
-		),
-		containerPath,
-		0544,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Execute the script with ON_ERROR_STOP so psql exits non-zero on any SQL error.
-	exitCode, output, err := container.Exec(context.Background(), []string{
-		"bash",
-		"-c",
-		fmt.Sprintf(
-			"export PGPASSWORD=%s && psql --set ON_ERROR_STOP=1 -U %s -d %s -f %s",
-			dbPassword, dbUsername, dbName, containerPath,
-		),
-	})
-	if err != nil {
-		return fmt.Errorf("initDB exec failed: %w", err)
-	}
-
-	if exitCode != 0 {
-		out, _ := io.ReadAll(output)
-		return fmt.Errorf("initDB script exited with code %d: %s", exitCode, string(out))
-	}
-
-	return nil
 }
