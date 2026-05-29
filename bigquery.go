@@ -66,7 +66,8 @@ func setupBigqueryEmulator(ctx context.Context, version string, dataPath string)
 		ExposedPorts: []string{bqHttpPort, bqGrpcPort},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort(bqGrpcPort),
-			wait.ForListeningPort(bqHttpPort),
+			// https://github.com/goccy/bigquery-emulator/blob/main/cmd/bigquery-emulator/main.go (SetListenCallback)
+			wait.ForLog("REST server listening"),
 		),
 	}
 
