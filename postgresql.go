@@ -94,6 +94,7 @@ func setupPostgresDB(ctx context.Context, initSQLScript ...string) (*PostgresDBC
 
 // dbURL returns the postgres database URL.
 func dbURL(host string, port string) string {
+	port, _, _ = strings.Cut(port, "/")
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, dbName,
 	)
