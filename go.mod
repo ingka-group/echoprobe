@@ -6,7 +6,7 @@ require (
 	github.com/h2non/gock v1.2.0
 	github.com/labstack/echo/v4 v4.15.2
 	github.com/lib/pq v1.12.3
-	github.com/moby/moby/api v1.54.1
+	github.com/moby/moby/api v1.54.2
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/xuri/excelize/v2 v2.10.1
