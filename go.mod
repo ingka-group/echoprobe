@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/h2non/gock v1.2.0
-	github.com/labstack/echo/v4 v4.15.2
+	github.com/labstack/echo/v4 v4.15.3
 	github.com/lib/pq v1.12.3
 	github.com/moby/moby/api v1.54.1
 	github.com/stretchr/testify v1.11.1
