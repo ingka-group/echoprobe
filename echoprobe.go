@@ -16,10 +16,13 @@ package echoprobe
 
 import (
 	"context"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/testcontainers/testcontainers-go"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -86,26 +89,22 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		o.Config = &gorm.Config{}
 	}
 
-	ctx := context.Background()
-
-	initSQLScript, err := fixturePath(o.InitSQLScript)
-	if err != nil {
-		it.T.Fatalf("database setup error: %v", err)
+	var initSQLScript string
+	if strings.TrimSpace(o.InitSQLScript) != "" {
+		executionPath, err := testpath()
+		if err != nil {
+			it.T.Fatalf("database setup error: resolving fixture path: %v", err)
+		}
+		initSQLScript = filepath.Join(executionPath, "fixtures", o.InitSQLScript)
 	}
 
+	// Without RunWithPostgres, nothing stops a shared container, so sharing relies on Ryuk to remove it.
 	var dbContainer *PostgresDBContainer
-	if sharedPostgres.enabled() {
-		server := sharedPostgres.server(o.Version)
-		dbContainer, err = server.createDatabase(ctx, initSQLScript)
-		if err == nil {
-			it.T.Cleanup(func() {
-				if err := server.dropDatabase(ctx, dbContainer.DBName); err != nil {
-					it.T.Logf("error detected while dropping database %s: %v", dbContainer.DBName, err)
-				}
-			})
-		}
+	var err error
+	if sharedPostgres.managed.Load() || !testcontainers.ReadConfig().Config.RyukDisabled {
+		dbContainer, err = sharedPostgres.createDatabase(it.T, o.Version, initSQLScript)
 	} else {
-		dbContainer, err = setupPostgresDB(ctx, o.Version, initSQLScript)
+		dbContainer, err = setupPostgresDB(context.Background(), o.Version, initSQLScript)
 	}
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)

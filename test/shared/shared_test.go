@@ -73,47 +73,6 @@ func withInitScript() echoprobe.IntegrationTestWithPostgres {
 	return echoprobe.IntegrationTestWithPostgres{InitSQLScript: "init.sql"}
 }
 
-func insertItem(t *testing.T, db *gorm.DB, key string) {
-	t.Helper()
-
-	if err := db.Exec("INSERT INTO items (key, value) VALUES (?, ?)", key, t.Name()).Error; err != nil {
-		t.Fatalf("insert %q: %v", key, err)
-	}
-}
-
-func countItems(t *testing.T, db *gorm.DB) int64 {
-	t.Helper()
-
-	var count int64
-	if err := db.Raw("SELECT count(*) FROM items").Scan(&count).Error; err != nil {
-		t.Fatalf("count items: %v", err)
-	}
-
-	return count
-}
-
-func seededValue(t *testing.T, db *gorm.DB) string {
-	t.Helper()
-
-	var value string
-	if err := db.Raw("SELECT value FROM items WHERE key = 'seeded'").Scan(&value).Error; err != nil {
-		t.Fatalf("query seeded row: %v", err)
-	}
-
-	return value
-}
-
-func serverVersion(t *testing.T, db *gorm.DB) string {
-	t.Helper()
-
-	var version string
-	if err := db.Raw("SHOW server_version").Scan(&version).Error; err != nil {
-		t.Fatalf("query server version: %v", err)
-	}
-
-	return version
-}
-
 func TestDatabase_StartsFromTheTemplateForItsOptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -150,8 +109,12 @@ func TestDatabase_StartsFromTheTemplateForItsOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newTest(t, tt.opts)
 
-			if got := serverVersion(t, db); !strings.HasPrefix(got, tt.wantVersion) {
-				t.Errorf("expected Postgres %s*, got %q", tt.wantVersion, got)
+			var version string
+			if err := db.Raw("SHOW server_version").Scan(&version).Error; err != nil {
+				t.Fatalf("query server version: %v", err)
+			}
+			if !strings.HasPrefix(version, tt.wantVersion) {
+				t.Errorf("expected Postgres %s*, got %q", tt.wantVersion, version)
 			}
 
 			if tt.wantSeeded == "" {
@@ -161,8 +124,12 @@ func TestDatabase_StartsFromTheTemplateForItsOptions(t *testing.T) {
 				return
 			}
 
-			if got := seededValue(t, db); got != tt.wantSeeded {
-				t.Errorf("expected seeded value %q, got %q", tt.wantSeeded, got)
+			var seeded string
+			if err := db.Raw("SELECT value FROM items WHERE key = 'seeded'").Scan(&seeded).Error; err != nil {
+				t.Fatalf("query seeded row: %v", err)
+			}
+			if seeded != tt.wantSeeded {
+				t.Errorf("expected seeded value %q, got %q", tt.wantSeeded, seeded)
 			}
 		})
 	}
@@ -171,16 +138,6 @@ func TestDatabase_StartsFromTheTemplateForItsOptions(t *testing.T) {
 // Every subtest inserts the same primary key. If two subtests shared a
 // database, the later one would fail with a duplicate key error.
 func TestIsolation(t *testing.T) {
-	writeOwnRow := func(t *testing.T) {
-		db := newTest(t, withInitScript())
-
-		insertItem(t, db, "written-by-a-test")
-
-		if got := countItems(t, db); got != 2 {
-			t.Errorf("expected the seeded row and our own row, got %d rows", got)
-		}
-	}
-
 	tests := []struct {
 		name     string
 		count    int
@@ -197,7 +154,20 @@ func TestIsolation(t *testing.T) {
 					if tt.parallel {
 						t.Parallel()
 					}
-					writeOwnRow(t)
+
+					db := newTest(t, withInitScript())
+
+					if err := db.Exec("INSERT INTO items (key, value) VALUES ('written-by-a-test', ?)", t.Name()).Error; err != nil {
+						t.Fatalf("insert: %v", err)
+					}
+
+					var count int64
+					if err := db.Raw("SELECT count(*) FROM items").Scan(&count).Error; err != nil {
+						t.Fatalf("count items: %v", err)
+					}
+					if count != 2 {
+						t.Errorf("expected the seeded row and our own row, got %d rows", count)
+					}
 				})
 			}
 		})

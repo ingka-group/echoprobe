@@ -15,7 +15,6 @@
 package echoprobe
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,10 +31,17 @@ func TestPostgresServer_BrokenInitScriptFailsWithPsqlOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := &postgresServer{}
-	t.Cleanup(server.close)
+	server, err := startPostgresServer(t.Context(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := server.close(); err != nil {
+			t.Log(err)
+		}
+	})
 
-	_, err := server.createDatabase(context.Background(), script)
+	_, err = server.createDatabase(t.Context(), script)
 	if err == nil {
 		t.Fatal("expected an error for a broken init script, got nil")
 	}
