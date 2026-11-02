@@ -17,6 +17,7 @@ package shared
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -25,44 +26,51 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-var containerIDs sync.Map
+// containerIDs maps each Postgres version to the IDs of the containers that served it.
+var (
+	containerIDsMu sync.Mutex
+	containerIDs   = map[string]map[string]struct{}{}
+)
 
 func TestMain(m *testing.M) {
-	code := echoprobe.RunWithPostgres(m, echoprobe.PostgresOptions{InitSQLScript: "init.sql"})
+	code := echoprobe.RunWithPostgres(m)
 
-	var count int
-	containerIDs.Range(func(_, _ any) bool {
-		count++
-		return true
-	})
-	if code == 0 && count > 1 {
-		fmt.Fprintf(os.Stderr, "expected one shared Postgres container, got %d\n", count)
-		code = 1
+	for version, ids := range containerIDs {
+		if code == 0 && len(ids) > 1 {
+			fmt.Fprintf(os.Stderr, "expected one shared container for version %q, got %d\n", version, len(ids))
+			code = 1
+		}
 	}
 
 	os.Exit(code)
 }
 
-func newTest(t *testing.T, opts ...echoprobe.IntegrationTestOption) (*echoprobe.IntegrationTest, *gorm.DB) {
+func newTest(t *testing.T, opts echoprobe.IntegrationTestWithPostgres) *gorm.DB {
 	t.Helper()
 
 	if testing.Short() {
 		t.Skip("(skipped)")
 	}
 
-	if len(opts) == 0 {
-		opts = []echoprobe.IntegrationTestOption{echoprobe.IntegrationTestWithPostgres{}}
-	}
+	it := echoprobe.NewIntegrationTest(t, opts)
 
-	it := echoprobe.NewIntegrationTest(t, opts...)
-	containerIDs.Store(it.Container.GetContainerID(), struct{}{})
+	containerIDsMu.Lock()
+	if containerIDs[opts.Version] == nil {
+		containerIDs[opts.Version] = map[string]struct{}{}
+	}
+	containerIDs[opts.Version][it.Container.GetContainerID()] = struct{}{}
+	containerIDsMu.Unlock()
 
 	db, ok := it.Db.(*gorm.DB)
 	if !ok {
 		t.Fatal("failed to assert it.Db to *gorm.DB")
 	}
 
-	return it, db
+	return db
+}
+
+func withInitScript() echoprobe.IntegrationTestWithPostgres {
+	return echoprobe.IntegrationTestWithPostgres{InitSQLScript: "init.sql"}
 }
 
 func insertItem(t *testing.T, db *gorm.DB, key string) {
@@ -84,23 +92,45 @@ func countItems(t *testing.T, db *gorm.DB) int64 {
 	return count
 }
 
-func TestTemplate_InitScriptIsApplied(t *testing.T) {
-	_, db := newTest(t)
+func seededValue(t *testing.T, db *gorm.DB) string {
+	t.Helper()
 
 	var value string
 	if err := db.Raw("SELECT value FROM items WHERE key = 'seeded'").Scan(&value).Error; err != nil {
 		t.Fatalf("query seeded row: %v", err)
 	}
 
-	if value != "from-init-script" {
-		t.Errorf("expected seeded value %q, got %q", "from-init-script", value)
+	return value
+}
+
+func TestTemplate_InitScriptIsApplied(t *testing.T) {
+	db := newTest(t, withInitScript())
+
+	if got := seededValue(t, db); got != "from-init-script" {
+		t.Errorf("expected seeded value %q, got %q", "from-init-script", got)
+	}
+}
+
+func TestTemplate_EachInitScriptHasItsOwnTemplate(t *testing.T) {
+	db := newTest(t, echoprobe.IntegrationTestWithPostgres{InitSQLScript: "other.sql"})
+
+	if got := seededValue(t, db); got != "from-other-script" {
+		t.Errorf("expected seeded value %q, got %q", "from-other-script", got)
+	}
+}
+
+func TestTemplate_NoInitScriptGivesAnEmptyDatabase(t *testing.T) {
+	db := newTest(t, echoprobe.IntegrationTestWithPostgres{})
+
+	if db.Migrator().HasTable("items") {
+		t.Error("expected no items table without an init script")
 	}
 }
 
 // The two isolation tests insert the same primary key. If they shared a
 // database, whichever runs second would fail with a duplicate key error.
 func TestIsolation_FirstTestWritesRow(t *testing.T) {
-	_, db := newTest(t)
+	db := newTest(t, withInitScript())
 
 	insertItem(t, db, "written-by-a-test")
 
@@ -110,7 +140,7 @@ func TestIsolation_FirstTestWritesRow(t *testing.T) {
 }
 
 func TestIsolation_SecondTestDoesNotSeeIt(t *testing.T) {
-	_, db := newTest(t)
+	db := newTest(t, withInitScript())
 
 	insertItem(t, db, "written-by-a-test")
 
@@ -124,7 +154,7 @@ func TestIsolation_ParallelTests(t *testing.T) {
 		t.Run(fmt.Sprintf("worker-%d", i), func(t *testing.T) {
 			t.Parallel()
 
-			_, db := newTest(t)
+			db := newTest(t, withInitScript())
 
 			insertItem(t, db, "written-by-a-test")
 
@@ -138,11 +168,13 @@ func TestIsolation_ParallelTests(t *testing.T) {
 func TestDatabase_IsDroppedAfterTest(t *testing.T) {
 	var testDB string
 	t.Run("inner", func(t *testing.T) {
-		it, _ := newTest(t)
-		testDB = it.Container.DBName
+		db := newTest(t, withInitScript())
+		if err := db.Raw("SELECT current_database()").Scan(&testDB).Error; err != nil {
+			t.Fatalf("query current database: %v", err)
+		}
 	})
 
-	_, db := newTest(t)
+	db := newTest(t, withInitScript())
 
 	var exists bool
 	if err := db.Raw("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = ?)", testDB).Scan(&exists).Error; err != nil {
@@ -155,11 +187,28 @@ func TestDatabase_IsDroppedAfterTest(t *testing.T) {
 }
 
 func TestDatabase_GormConfigIsApplied(t *testing.T) {
-	_, db := newTest(t, echoprobe.IntegrationTestWithPostgres{
+	db := newTest(t, echoprobe.IntegrationTestWithPostgres{
 		Config: &gorm.Config{NamingStrategy: schema.NamingStrategy{TablePrefix: "app_"}},
 	})
 
 	if got := db.NamingStrategy.TableName("Item"); got != "app_items" {
 		t.Errorf("expected table name %q from the custom naming strategy, got %q", "app_items", got)
+	}
+}
+
+func TestVersion_EachVersionHasItsOwnContainer(t *testing.T) {
+	db := newTest(t, echoprobe.IntegrationTestWithPostgres{Version: "16-alpine", InitSQLScript: "init.sql"})
+
+	var version string
+	if err := db.Raw("SHOW server_version").Scan(&version).Error; err != nil {
+		t.Fatalf("query server version: %v", err)
+	}
+
+	if !strings.HasPrefix(version, "16.") {
+		t.Errorf("expected Postgres 16, got %q", version)
+	}
+
+	if got := seededValue(t, db); got != "from-init-script" {
+		t.Errorf("expected seeded value %q, got %q", "from-init-script", got)
 	}
 }

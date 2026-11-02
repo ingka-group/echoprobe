@@ -15,61 +15,32 @@
 package echoprobe
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestPostgresOptions_Conflict(t *testing.T) {
-	shared := PostgresOptions{InitSQLScript: "init.sql"}
-
-	tests := []struct {
-		name      string
-		option    IntegrationTestWithPostgres
-		wantError []string
-	}{
-		{
-			name:   "ok: empty options inherit the package setup",
-			option: IntegrationTestWithPostgres{},
-		},
-		{
-			name:   "ok: explicit default version matches an empty package version",
-			option: IntegrationTestWithPostgres{Version: defaultPostgresVersion},
-		},
-		{
-			name:   "ok: same init script",
-			option: IntegrationTestWithPostgres{InitSQLScript: "init.sql"},
-		},
-		{
-			name:      "error: different version",
-			option:    IntegrationTestWithPostgres{Version: "16-alpine"},
-			wantError: []string{`"16-alpine"`, `"17-alpine"`},
-		},
-		{
-			name:      "error: different init script",
-			option:    IntegrationTestWithPostgres{InitSQLScript: "other.sql"},
-			wantError: []string{`"other.sql"`, `"init.sql"`},
-		},
+func TestPostgresServer_BrokenInitScriptFailsWithPsqlOutput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("(skipped)")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := shared.conflict(tt.option)
+	script := filepath.Join(t.TempDir(), "broken.sql")
+	if err := os.WriteFile(script, []byte("CREATE TABLE ok (id INT);\nSELECT * FROM missing_table;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-			if tt.wantError == nil {
-				if err != nil {
-					t.Fatalf("expected no error, got: %v", err)
-				}
-				return
-			}
+	server := &postgresServer{}
+	t.Cleanup(server.close)
 
-			if err == nil {
-				t.Fatal("expected an error, got nil")
-			}
-			for _, want := range tt.wantError {
-				if !strings.Contains(err.Error(), want) {
-					t.Errorf("expected error to contain %s, got: %v", want, err)
-				}
-			}
-		})
+	_, err := server.createDatabase(context.Background(), script)
+	if err == nil {
+		t.Fatal("expected an error for a broken init script, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "missing_table") {
+		t.Errorf("expected the psql error in the message, got: %v", err)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	_ "github.com/lib/pq"
@@ -35,7 +37,6 @@ import (
 const (
 	defaultPostgresVersion = "17-alpine"
 	dbName                 = "postgres"
-	templateDBName         = "echoprobe_template"
 	dbUsername             = "postgres"
 	dbPassword             = "password"
 	dbPort                 = "5432/tcp"
@@ -50,107 +51,185 @@ type PostgresDBContainer struct {
 	DBName     string
 	DBUsername string
 	DBPassword string
+
+	shared bool
 }
 
-// PostgresOptions configures the Postgres container that RunWithPostgres shares between all tests of a package.
-// The InitSQLScript is applied once to the template database that every test database is copied from.
-type PostgresOptions struct {
-	Version       string
-	InitSQLScript string
-}
+// sharedPostgres holds one Postgres container per version, shared by all tests in the test process.
+var sharedPostgres = &postgresServers{}
 
-// sharedPostgres is set by RunWithPostgres. When nil, every test starts its own container.
-var sharedPostgres *postgresPool
-
-// RunWithPostgres runs the tests of a package against one shared Postgres container and returns the exit code.
-// Call it from TestMain. Each test that uses IntegrationTestWithPostgres gets its own database, copied from a
-// template database. The container starts when the first test needs it and stops after all tests have run.
-func RunWithPostgres(m *testing.M, opts PostgresOptions) int {
-	sharedPostgres = &postgresPool{opts: opts}
-	defer func() {
-		sharedPostgres.close()
-		sharedPostgres = nil
-	}()
+// RunWithPostgres runs the tests of a package and stops the shared Postgres containers afterwards. Call it from
+// TestMain. It turns on container sharing even when Ryuk is disabled, because it stops the containers itself.
+func RunWithPostgres(m *testing.M) int {
+	sharedPostgres.managed.Store(true)
+	defer sharedPostgres.close()
 
 	return m.Run()
 }
 
-// postgresPool hands out a fresh database per test from one shared container.
-type postgresPool struct {
-	opts      PostgresOptions
+type postgresServers struct {
+	managed atomic.Bool
+
+	mu      sync.Mutex
+	servers map[string]*postgresServer
+}
+
+// enabled reports whether tests share containers. Without RunWithPostgres, nothing stops a shared container, so
+// sharing then relies on Ryuk to remove the containers after the test process exits.
+func (s *postgresServers) enabled() bool {
+	return s.managed.Load() || !testcontainers.ReadConfig().Config.RyukDisabled
+}
+
+func (s *postgresServers) server(version string) *postgresServer {
+	version = postgresVersion(version)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.servers == nil {
+		s.servers = map[string]*postgresServer{}
+	}
+
+	server, ok := s.servers[version]
+	if !ok {
+		server = &postgresServer{version: version}
+		s.servers[version] = server
+	}
+
+	return server
+}
+
+func (s *postgresServers) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, server := range s.servers {
+		server.close()
+	}
+	s.servers = nil
+	s.managed.Store(false)
+}
+
+// postgresServer is one shared container. Each test gets its own database, copied from a template database
+// per init script.
+type postgresServer struct {
+	version   string
 	once      sync.Once
 	container *PostgresDBContainer
 	admin     *sql.DB
 	err       error
-	counter   atomic.Int64
+	databases atomic.Int64
+
+	mu        sync.Mutex
+	templates map[string]*postgresTemplate
 }
 
-func (p *postgresPool) start() {
+type postgresTemplate struct {
+	once sync.Once
+	name string
+	err  error
+}
+
+func (s *postgresServer) start() {
 	ctx := context.Background()
 
-	p.container, p.err = setupPostgresDB(ctx, p.opts.Version, templateDBName, p.opts.InitSQLScript)
-	if p.err != nil {
-		p.err = fmt.Errorf("starting shared postgres container: %w", p.err)
+	s.container, s.err = setupPostgresDB(ctx, s.version, "")
+	if s.err != nil {
+		s.err = fmt.Errorf("starting shared postgres container: %w", s.err)
 		return
 	}
+	s.container.shared = true
 
-	p.admin, p.err = sql.Open("postgres", databaseURL(p.container.DBHost, strconv.Itoa(p.container.DBPort), dbName))
+	s.admin, s.err = sql.Open("postgres", databaseURL(s.container.DBHost, strconv.Itoa(s.container.DBPort), dbName))
 }
 
-// createDatabase copies the template database into a new database with a unique name.
-func (p *postgresPool) createDatabase(ctx context.Context) (*PostgresDBContainer, error) {
-	p.once.Do(p.start)
-	if p.err != nil {
-		return nil, p.err
+// createDatabase creates a database for one test. With an init script, the database is a copy of the template
+// database for that script.
+func (s *postgresServer) createDatabase(ctx context.Context, initSQLScript string) (*PostgresDBContainer, error) {
+	s.once.Do(s.start)
+	if s.err != nil {
+		return nil, s.err
 	}
 
-	name := fmt.Sprintf("test_%d", p.counter.Add(1))
-	if _, err := p.admin.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s TEMPLATE %s", name, templateDBName)); err != nil {
+	name := fmt.Sprintf("test_%d", s.databases.Add(1))
+	query := "CREATE DATABASE " + name
+	if initSQLScript != "" {
+		template, err := s.template(ctx, initSQLScript)
+		if err != nil {
+			return nil, err
+		}
+		query += " TEMPLATE " + template
+	}
+
+	if _, err := s.admin.ExecContext(ctx, query); err != nil {
 		return nil, fmt.Errorf("creating database %s: %w", name, err)
 	}
 
-	container := *p.container
+	container := *s.container
 	container.DBName = name
 
 	return &container, nil
 }
 
-func (p *postgresPool) dropDatabase(ctx context.Context, name string) error {
-	_, err := p.admin.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", name))
-	return err
+func (s *postgresServer) template(ctx context.Context, initSQLScript string) (string, error) {
+	s.mu.Lock()
+	if s.templates == nil {
+		s.templates = map[string]*postgresTemplate{}
+	}
+	template, ok := s.templates[initSQLScript]
+	if !ok {
+		template = &postgresTemplate{name: fmt.Sprintf("echoprobe_template_%d", len(s.templates)+1)}
+		s.templates[initSQLScript] = template
+	}
+	s.mu.Unlock()
+
+	template.once.Do(func() {
+		template.err = s.createTemplate(ctx, template.name, initSQLScript)
+	})
+
+	return template.name, template.err
 }
 
-func (p *postgresPool) close() {
-	if p.admin != nil {
-		_ = p.admin.Close()
+// createTemplate runs the init script with psql inside the container, the same way the Postgres image runs
+// scripts from /docker-entrypoint-initdb.d/.
+func (s *postgresServer) createTemplate(ctx context.Context, name, initSQLScript string) error {
+	if _, err := s.admin.ExecContext(ctx, "CREATE DATABASE "+name); err != nil {
+		return fmt.Errorf("creating template database %s: %w", name, err)
 	}
 
-	if p.container != nil {
-		if err := p.container.Terminate(context.Background()); err != nil {
-			fmt.Fprintf(os.Stderr, "error detected during container termination: %v\n", err)
-		}
-	}
-}
-
-// conflict reports a per-test option that differs from the package options. Empty per-test values inherit them.
-func (p PostgresOptions) conflict(o IntegrationTestWithPostgres) error {
-	if o.Version != "" && postgresVersion(o.Version) != postgresVersion(p.Version) {
-		return fmt.Errorf(
-			"IntegrationTestWithPostgres.Version %q differs from the RunWithPostgres version %q: "+
-				"leave it empty, use the same value, or move the test to a package without RunWithPostgres",
-			o.Version, postgresVersion(p.Version),
-		)
+	scriptPath := "/tmp/" + name + ".sql"
+	if err := s.container.CopyFileToContainer(ctx, initSQLScript, scriptPath, 0o644); err != nil {
+		return fmt.Errorf("copying init script %s: %w", initSQLScript, err)
 	}
 
-	if o.InitSQLScript != "" && o.InitSQLScript != p.InitSQLScript {
-		return fmt.Errorf(
-			"IntegrationTestWithPostgres.InitSQLScript %q differs from the RunWithPostgres init script %q: "+
-				"leave it empty, use the same value, or move the test to a package without RunWithPostgres",
-			o.InitSQLScript, p.InitSQLScript,
-		)
+	cmd := []string{"psql", "-v", "ON_ERROR_STOP=1", "-U", dbUsername, "-d", name, "-f", scriptPath}
+	code, output, err := s.container.Exec(ctx, cmd, tcexec.Multiplexed())
+	if err != nil {
+		return fmt.Errorf("running init script %s: %w", initSQLScript, err)
+	}
+	if code != 0 {
+		out, _ := io.ReadAll(output)
+		return fmt.Errorf("running init script %s: exit code %d: %s", initSQLScript, code, out)
 	}
 
 	return nil
+}
+
+func (s *postgresServer) dropDatabase(ctx context.Context, name string) error {
+	_, err := s.admin.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", name))
+	return err
+}
+
+func (s *postgresServer) close() {
+	if s.admin != nil {
+		_ = s.admin.Close()
+	}
+
+	if s.container != nil {
+		if err := s.container.Terminate(context.Background()); err != nil {
+			fmt.Fprintf(os.Stderr, "error detected during container termination: %v\n", err)
+		}
+	}
 }
 
 func postgresVersion(version string) string {
@@ -161,31 +240,38 @@ func postgresVersion(version string) string {
 	return version
 }
 
+// fixturePath returns the absolute path of a file under the 'fixtures' directory next to the calling test file.
+func fixturePath(name string) (string, error) {
+	if strings.TrimSpace(name) == "" {
+		return "", nil
+	}
+
+	executionPath, err := testpath()
+	if err != nil {
+		return "", fmt.Errorf("resolving fixture path: %w", err)
+	}
+
+	return filepath.Join(executionPath, "fixtures", name), nil
+}
+
 // setupPostgresDB sets up a postgres database test container.
 // Init SQL scripts are mounted into /docker-entrypoint-initdb.d/ so Postgres
-// executes them in the database named by database during its own initialization,
-// before accepting TCP connections.
-func setupPostgresDB(ctx context.Context, version, database, initSQLScript string) (*PostgresDBContainer, error) {
+// executes them during its own initialization, before accepting TCP connections.
+func setupPostgresDB(ctx context.Context, version, initSQLScript string) (*PostgresDBContainer, error) {
 	req := testcontainers.ContainerRequest{
 		Image: "postgres:" + postgresVersion(version),
 		Env: map[string]string{
 			"POSTGRES_USER":     dbUsername,
 			"POSTGRES_PASSWORD": dbPassword,
-			"POSTGRES_DB":       database,
 		},
 		ExposedPorts: []string{dbPort},
 		WaitingFor:   wait.ForSQL(dbPort, "postgres", dbURL),
 	}
 
-	if strings.TrimSpace(initSQLScript) != "" {
-		executionPath, err := testpath()
-		if err != nil {
-			return nil, fmt.Errorf("resolving fixture path: %w", err)
-		}
-
+	if initSQLScript != "" {
 		req.Files = []testcontainers.ContainerFile{
 			{
-				HostFilePath:      filepath.Join(executionPath, "fixtures", initSQLScript),
+				HostFilePath:      initSQLScript,
 				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScript),
 				FileMode:          0644,
 			},
@@ -214,7 +300,7 @@ func setupPostgresDB(ctx context.Context, version, database, initSQLScript strin
 		Container:  container,
 		DBHost:     hostIP,
 		DBPort:     int(mappedPort.Num()),
-		DBName:     database,
+		DBName:     dbName,
 		DBUsername: dbUsername,
 		DBPassword: dbPassword,
 	}, nil

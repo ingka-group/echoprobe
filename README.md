@@ -94,28 +94,23 @@ tests := []echoprobe.Data{...}
 echoprobe.AssertAll(it, tests)
 ```
 
-#### One container per package
+#### Shared containers
 
-By default, every test that uses `IntegrationTestWithPostgres` starts its own Postgres container. In a package with many database tests, that is slow. Run the package through `RunWithPostgres` in `TestMain` to share one container between all tests of the package:
+Starting a Postgres container per test is slow. When [Ryuk](https://golang.testcontainers.org/features/garbage_collector/) is enabled (the testcontainers default, also on GitHub runners), echoprobe shares containers instead. You do not need to change your tests. How it works:
+
+- Tests share one container per `Version`. The container starts when the first test needs it. Ryuk removes it when the test process exits.
+- Each `InitSQLScript` runs once, with `psql`, in its own template database.
+- Each test gets its own database, copied from the template with `CREATE DATABASE ... TEMPLATE`. Tests cannot see each other's data, also under `t.Parallel()`.
+- The test database is dropped when the test finishes. `it.Container.DBName` holds its name.
+- If you run migrations (for example goose) after `NewIntegrationTest`, keep doing so. They run against the test's own database.
+
+When Ryuk is disabled (`TESTCONTAINERS_RYUK_DISABLED=true`), nothing would remove a shared container, so every test starts its own container as before. To share containers anyway, run the package through `RunWithPostgres` in `TestMain`. It stops the shared containers after all tests in the package have run:
 
 ```golang
 func TestMain(m *testing.M) {
-    os.Exit(echoprobe.RunWithPostgres(m, echoprobe.PostgresOptions{
-        Version:       "16-alpine",   // optional, defaults to 17-alpine
-        InitSQLScript: "init-db.sql", // optional, under fixtures/
-    }))
+    os.Exit(echoprobe.RunWithPostgres(m))
 }
 ```
-
-Your tests do not change. How it works:
-
-- The container starts when the first test asks for Postgres, and stops after all tests in the package have run. In `go test -short` runs that skip database tests, no container starts.
-- The init script runs once, in a template database. Each test gets its own database, copied from that template with `CREATE DATABASE ... TEMPLATE`. Tests cannot see each other's data, also under `t.Parallel()`.
-- The test database is dropped when the test finishes. `it.Container.DBName` holds its name.
-- In tests, leave `Version` and `InitSQLScript` empty, or set them to the same values as in `PostgresOptions`. A different value fails the test. Move such a test to its own package.
-- If you run migrations (for example goose) after `NewIntegrationTest`, keep doing so. They run against the test's own database.
-
-Use it when a package has more than a few database tests. A package with a single database test gains nothing.
 
 ### With BigQuery
 

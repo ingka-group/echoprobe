@@ -71,9 +71,9 @@ type IntegrationTestOption interface {
 // In the InitSQLScript a SQL script filename can be passed to initialize the database. The script should be located
 // under a 'fixtures' directory where the _test.go file is located. An optional gorm config can also be passed.
 //
-// When the package runs its tests through RunWithPostgres, the test gets its own database in the shared container
-// instead, and the database is dropped when the test finishes. Version and InitSQLScript must then be empty or match
-// the PostgresOptions; a different value fails the test.
+// When Ryuk is enabled, or the package runs its tests through RunWithPostgres, tests share one container per Version.
+// Each test then gets its own database, copied from a template database per InitSQLScript, and the database is
+// dropped when the test finishes.
 type IntegrationTestWithPostgres struct {
 	Version       string
 	InitSQLScript string
@@ -88,22 +88,24 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 
 	ctx := context.Background()
 
+	initSQLScript, err := fixturePath(o.InitSQLScript)
+	if err != nil {
+		it.T.Fatalf("database setup error: %v", err)
+	}
+
 	var dbContainer *PostgresDBContainer
-	var err error
-	if pool := sharedPostgres; pool != nil {
-		if err = pool.opts.conflict(o); err != nil {
-			it.T.Fatalf("database setup error: %v", err)
-		}
-		dbContainer, err = pool.createDatabase(ctx)
+	if sharedPostgres.enabled() {
+		server := sharedPostgres.server(o.Version)
+		dbContainer, err = server.createDatabase(ctx, initSQLScript)
 		if err == nil {
 			it.T.Cleanup(func() {
-				if err := pool.dropDatabase(ctx, dbContainer.DBName); err != nil {
+				if err := server.dropDatabase(ctx, dbContainer.DBName); err != nil {
 					it.T.Logf("error detected while dropping database %s: %v", dbContainer.DBName, err)
 				}
 			})
 		}
 	} else {
-		dbContainer, err = setupPostgresDB(ctx, o.Version, dbName, o.InitSQLScript)
+		dbContainer, err = setupPostgresDB(ctx, o.Version, initSQLScript)
 	}
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
@@ -117,7 +119,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		it.T.Fatalf("database connection error: %v", err)
 	}
 
-	if sharedPostgres != nil {
+	if dbContainer.shared {
 		it.T.Cleanup(func() {
 			if sqlDB, err := db.DB(); err == nil {
 				_ = sqlDB.Close()
@@ -130,7 +132,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 
 func (o IntegrationTestWithPostgres) tearDown(it *IntegrationTest) {
 	// A shared container outlives the test; its database is dropped by the cleanup registered in setup.
-	if sharedPostgres != nil {
+	if it.Container.shared {
 		return
 	}
 
