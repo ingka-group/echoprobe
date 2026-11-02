@@ -70,6 +70,10 @@ type IntegrationTestOption interface {
 // IntegrationTestWithPostgres is an option for integration testing that sets up a postgres database test container.
 // In the InitSQLScript a SQL script filename can be passed to initialize the database. The script should be located
 // under a 'fixtures' directory where the _test.go file is located. An optional gorm config can also be passed.
+//
+// When the package runs its tests through RunWithPostgres, the test gets its own database in the shared container
+// instead, and the database is dropped when the test finishes. Version and InitSQLScript must then be empty or match
+// the PostgresOptions; a different value fails the test.
 type IntegrationTestWithPostgres struct {
 	Version       string
 	InitSQLScript string
@@ -82,23 +86,54 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		o.Config = &gorm.Config{}
 	}
 
-	dbContainer, err := setupPostgresDB(context.Background(), o.Version, o.InitSQLScript)
+	ctx := context.Background()
+
+	var dbContainer *PostgresDBContainer
+	var err error
+	if pool := sharedPostgres; pool != nil {
+		if err = pool.opts.conflict(o); err != nil {
+			it.T.Fatalf("database setup error: %v", err)
+		}
+		dbContainer, err = pool.createDatabase(ctx)
+		if err == nil {
+			it.T.Cleanup(func() {
+				if err := pool.dropDatabase(ctx, dbContainer.DBName); err != nil {
+					it.T.Logf("error detected while dropping database %s: %v", dbContainer.DBName, err)
+				}
+			})
+		}
+	} else {
+		dbContainer, err = setupPostgresDB(ctx, o.Version, dbName, o.InitSQLScript)
+	}
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
 	}
 
 	it.Container = dbContainer
 
-	dsn := dbURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort))
+	dsn := databaseURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort), dbContainer.DBName)
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)
+	}
+
+	if sharedPostgres != nil {
+		it.T.Cleanup(func() {
+			if sqlDB, err := db.DB(); err == nil {
+				_ = sqlDB.Close()
+			}
+		})
 	}
 
 	it.Db = db
 }
 
 func (o IntegrationTestWithPostgres) tearDown(it *IntegrationTest) {
+	// A shared container outlives the test; its database is dropped by the cleanup registered in setup.
+	if sharedPostgres != nil {
+		return
+	}
+
 	err := it.Container.Terminate(context.Background())
 	if err != nil {
 		it.T.Logf("error detected during container termination: %v", err)

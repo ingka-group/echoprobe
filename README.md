@@ -94,6 +94,29 @@ tests := []echoprobe.Data{...}
 echoprobe.AssertAll(it, tests)
 ```
 
+#### One container per package
+
+By default, every test that uses `IntegrationTestWithPostgres` starts its own Postgres container. In a package with many database tests, that is slow. Run the package through `RunWithPostgres` in `TestMain` to share one container between all tests of the package:
+
+```golang
+func TestMain(m *testing.M) {
+    os.Exit(echoprobe.RunWithPostgres(m, echoprobe.PostgresOptions{
+        Version:       "16-alpine",   // optional, defaults to 17-alpine
+        InitSQLScript: "init-db.sql", // optional, under fixtures/
+    }))
+}
+```
+
+Your tests do not change. How it works:
+
+- The container starts when the first test asks for Postgres, and stops after all tests in the package have run. In `go test -short` runs that skip database tests, no container starts.
+- The init script runs once, in a template database. Each test gets its own database, copied from that template with `CREATE DATABASE ... TEMPLATE`. Tests cannot see each other's data, also under `t.Parallel()`.
+- The test database is dropped when the test finishes. `it.Container.DBName` holds its name.
+- In tests, leave `Version` and `InitSQLScript` empty, or set them to the same values as in `PostgresOptions`. A different value fails the test. Move such a test to its own package.
+- If you run migrations (for example goose) after `NewIntegrationTest`, keep doing so. They run against the test's own database.
+
+Use it when a package has more than a few database tests. A package with a single database test gains nothing.
+
 ### With BigQuery
 
 `echoprobe` supports testing with BigQuery using `ghcr.io/goccy/bigquery-emulator` as a test container. To use BigQuery in your integration test, you need to pass the `IntegrationTestWithBigQuery` option to the `NewIntegrationTest` function. You can pin a specific emulator version using the `Version` field (defaults to `latest`). It is expected that BigQuery needs to be populated with data upon the test startup. To do that, you need to provide a `.yaml` under the `fixtures/bigquery` directory.
