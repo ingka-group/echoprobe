@@ -44,6 +44,7 @@ type Mock struct {
 
 // NewMock creates a new Mock
 func NewMock(baseURL string) *Mock {
+	gock.Intercept()
 	return &Mock{
 		baseURL: baseURL,
 	}
