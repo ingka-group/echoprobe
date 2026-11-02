@@ -172,6 +172,10 @@ func (s *postgresServer) close() error {
 
 // onceMap computes the value for each key once. Concurrent callers for the same key wait for the first one and
 // share its result, including its error.
+//
+// Parallel tests ask for the same server or template at the same moment; without this, each would start its own
+// container or build its own template. The mutex only guards the map lookup, so keys are computed concurrently:
+// starting one Postgres version does not block a test that needs another.
 type onceMap[K comparable, V any] struct {
 	mu    sync.Mutex
 	funcs map[K]func() (V, error)
