@@ -103,63 +103,102 @@ func seededValue(t *testing.T, db *gorm.DB) string {
 	return value
 }
 
-func TestTemplate_InitScriptIsApplied(t *testing.T) {
-	db := newTest(t, withInitScript())
+func serverVersion(t *testing.T, db *gorm.DB) string {
+	t.Helper()
 
-	if got := seededValue(t, db); got != "from-init-script" {
-		t.Errorf("expected seeded value %q, got %q", "from-init-script", got)
+	var version string
+	if err := db.Raw("SHOW server_version").Scan(&version).Error; err != nil {
+		t.Fatalf("query server version: %v", err)
+	}
+
+	return version
+}
+
+func TestDatabase_StartsFromTheTemplateForItsOptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		opts        echoprobe.IntegrationTestWithPostgres
+		wantVersion string
+		wantSeeded  string // empty means no items table
+	}{
+		{
+			name:        "init script is applied",
+			opts:        withInitScript(),
+			wantVersion: "17.",
+			wantSeeded:  "from-init-script",
+		},
+		{
+			name:        "each init script has its own template",
+			opts:        echoprobe.IntegrationTestWithPostgres{InitSQLScript: "other.sql"},
+			wantVersion: "17.",
+			wantSeeded:  "from-other-script",
+		},
+		{
+			name:        "no init script gives an empty database",
+			opts:        echoprobe.IntegrationTestWithPostgres{},
+			wantVersion: "17.",
+		},
+		{
+			name:        "each version has its own container",
+			opts:        echoprobe.IntegrationTestWithPostgres{Version: "16-alpine", InitSQLScript: "init.sql"},
+			wantVersion: "16.",
+			wantSeeded:  "from-init-script",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newTest(t, tt.opts)
+
+			if got := serverVersion(t, db); !strings.HasPrefix(got, tt.wantVersion) {
+				t.Errorf("expected Postgres %s*, got %q", tt.wantVersion, got)
+			}
+
+			if tt.wantSeeded == "" {
+				if db.Migrator().HasTable("items") {
+					t.Error("expected no items table without an init script")
+				}
+				return
+			}
+
+			if got := seededValue(t, db); got != tt.wantSeeded {
+				t.Errorf("expected seeded value %q, got %q", tt.wantSeeded, got)
+			}
+		})
 	}
 }
 
-func TestTemplate_EachInitScriptHasItsOwnTemplate(t *testing.T) {
-	db := newTest(t, echoprobe.IntegrationTestWithPostgres{InitSQLScript: "other.sql"})
+// Every subtest inserts the same primary key. If two subtests shared a
+// database, the later one would fail with a duplicate key error.
+func TestIsolation(t *testing.T) {
+	writeOwnRow := func(t *testing.T) {
+		db := newTest(t, withInitScript())
 
-	if got := seededValue(t, db); got != "from-other-script" {
-		t.Errorf("expected seeded value %q, got %q", "from-other-script", got)
+		insertItem(t, db, "written-by-a-test")
+
+		if got := countItems(t, db); got != 2 {
+			t.Errorf("expected the seeded row and our own row, got %d rows", got)
+		}
 	}
-}
 
-func TestTemplate_NoInitScriptGivesAnEmptyDatabase(t *testing.T) {
-	db := newTest(t, echoprobe.IntegrationTestWithPostgres{})
-
-	if db.Migrator().HasTable("items") {
-		t.Error("expected no items table without an init script")
+	tests := []struct {
+		name     string
+		count    int
+		parallel bool
+	}{
+		{name: "sequential", count: 2},
+		{name: "parallel", count: 10, parallel: true},
 	}
-}
 
-// The two isolation tests insert the same primary key. If they shared a
-// database, whichever runs second would fail with a duplicate key error.
-func TestIsolation_FirstTestWritesRow(t *testing.T) {
-	db := newTest(t, withInitScript())
-
-	insertItem(t, db, "written-by-a-test")
-
-	if got := countItems(t, db); got != 2 {
-		t.Errorf("expected the seeded row and our own row, got %d rows", got)
-	}
-}
-
-func TestIsolation_SecondTestDoesNotSeeIt(t *testing.T) {
-	db := newTest(t, withInitScript())
-
-	insertItem(t, db, "written-by-a-test")
-
-	if got := countItems(t, db); got != 2 {
-		t.Errorf("expected the seeded row and our own row, got %d rows", got)
-	}
-}
-
-func TestIsolation_ParallelTests(t *testing.T) {
-	for i := range 10 {
-		t.Run(fmt.Sprintf("worker-%d", i), func(t *testing.T) {
-			t.Parallel()
-
-			db := newTest(t, withInitScript())
-
-			insertItem(t, db, "written-by-a-test")
-
-			if got := countItems(t, db); got != 2 {
-				t.Errorf("expected the seeded row and our own row, got %d rows", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := range tt.count {
+				t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
+					if tt.parallel {
+						t.Parallel()
+					}
+					writeOwnRow(t)
+				})
 			}
 		})
 	}
@@ -193,22 +232,5 @@ func TestDatabase_GormConfigIsApplied(t *testing.T) {
 
 	if got := db.NamingStrategy.TableName("Item"); got != "app_items" {
 		t.Errorf("expected table name %q from the custom naming strategy, got %q", "app_items", got)
-	}
-}
-
-func TestVersion_EachVersionHasItsOwnContainer(t *testing.T) {
-	db := newTest(t, echoprobe.IntegrationTestWithPostgres{Version: "16-alpine", InitSQLScript: "init.sql"})
-
-	var version string
-	if err := db.Raw("SHOW server_version").Scan(&version).Error; err != nil {
-		t.Fatalf("query server version: %v", err)
-	}
-
-	if !strings.HasPrefix(version, "16.") {
-		t.Errorf("expected Postgres 16, got %q", version)
-	}
-
-	if got := seededValue(t, db); got != "from-init-script" {
-		t.Errorf("expected seeded value %q, got %q", "from-init-script", got)
 	}
 }
