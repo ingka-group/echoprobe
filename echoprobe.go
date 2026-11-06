@@ -16,10 +16,13 @@ package echoprobe
 
 import (
 	"context"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/testcontainers/testcontainers-go"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -70,6 +73,10 @@ type IntegrationTestOption interface {
 // IntegrationTestWithPostgres is an option for integration testing that sets up a postgres database test container.
 // In the InitSQLScript a SQL script filename can be passed to initialize the database. The script should be located
 // under a 'fixtures' directory where the _test.go file is located. An optional gorm config can also be passed.
+//
+// When Ryuk is enabled, or the package runs its tests through RunWithPostgres, tests share one container per Version.
+// Each test then gets its own database, copied from a template database per InitSQLScript, and the database is
+// dropped when the test finishes.
 type IntegrationTestWithPostgres struct {
 	Version       string
 	InitSQLScript string
@@ -82,23 +89,52 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		o.Config = &gorm.Config{}
 	}
 
-	dbContainer, err := setupPostgresDB(context.Background(), o.Version, o.InitSQLScript)
+	var initSQLScriptPath string
+	if strings.TrimSpace(o.InitSQLScript) != "" {
+		executionPath, err := testpath()
+		if err != nil {
+			it.T.Fatalf("database setup error: resolving fixture path: %v", err)
+		}
+		initSQLScriptPath = filepath.Join(executionPath, "fixtures", o.InitSQLScript)
+	}
+
+	// Without RunWithPostgres, nothing stops a shared container, so sharing relies on Ryuk to remove it.
+	var dbContainer *PostgresDBContainer
+	var err error
+	if sharedPostgres.managed.Load() || !testcontainers.ReadConfig().Config.RyukDisabled {
+		dbContainer, err = sharedPostgres.createDatabase(it.T, o.Version, initSQLScriptPath)
+	} else {
+		dbContainer, err = setupPostgresDB(context.Background(), o.Version, initSQLScriptPath)
+	}
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
 	}
 
 	it.Container = dbContainer
 
-	dsn := dbURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort))
+	dsn := dbURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort), dbContainer.DBName)
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)
+	}
+
+	if dbContainer.shared {
+		it.T.Cleanup(func() {
+			if sqlDB, err := db.DB(); err == nil {
+				_ = sqlDB.Close()
+			}
+		})
 	}
 
 	it.Db = db
 }
 
 func (o IntegrationTestWithPostgres) tearDown(it *IntegrationTest) {
+	// A shared container outlives the test; its database is dropped by the cleanup registered in setup.
+	if it.Container.shared {
+		return
+	}
+
 	err := it.Container.Terminate(context.Background())
 	if err != nil {
 		it.T.Logf("error detected during container termination: %v", err)

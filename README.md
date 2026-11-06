@@ -94,6 +94,25 @@ tests := []echoprobe.Data{...}
 echoprobe.AssertAll(it, tests)
 ```
 
+#### Shared containers
+
+Starting a Postgres container per test is slow. When [Ryuk](https://golang.testcontainers.org/features/garbage_collector/) is enabled (the testcontainers default, also on GitHub runners), echoprobe shares containers instead. You do not need to change your tests. How it works:
+
+- Tests share one container per `Version`. The container starts when the first test needs it. Ryuk removes it when the test process exits.
+- Each `InitSQLScript` runs once, with `psql`, in its own template database.
+- Each test gets its own database, copied from the template with `CREATE DATABASE ... TEMPLATE`. Tests cannot see each other's data, also under `t.Parallel()`.
+- The test database is dropped when the test finishes. `it.Container.DBName` holds its name.
+- If you run migrations (for example goose) after `NewIntegrationTest`, keep doing so. They run against the test's own database.
+- Roles and other server-wide objects are shared by all tests on the container. A plain `CREATE ROLE` in an init script or migration fails the second time it runs, so create them only if they do not exist yet (for example in a `DO $$ ... IF NOT EXISTS` block).
+
+When Ryuk is disabled (`TESTCONTAINERS_RYUK_DISABLED=true`), nothing would remove a shared container, so every test starts its own container as before. To share containers anyway, run the package through `RunWithPostgres` in `TestMain`. It stops the shared containers after all tests in the package have run:
+
+```golang
+func TestMain(m *testing.M) {
+    os.Exit(echoprobe.RunWithPostgres(m))
+}
+```
+
 ### With BigQuery
 
 `echoprobe` supports testing with BigQuery using `ghcr.io/goccy/bigquery-emulator` as a test container. To use BigQuery in your integration test, you need to pass the `IntegrationTestWithBigQuery` option to the `NewIntegrationTest` function. You can pin a specific emulator version using the `Version` field (defaults to `latest`). It is expected that BigQuery needs to be populated with data upon the test startup. To do that, you need to provide a `.yaml` under the `fixtures/bigquery` directory.
