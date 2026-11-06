@@ -60,7 +60,7 @@ type postgresPool struct {
 }
 
 // createDatabase creates a database for t on the shared server for version, and drops it when t finishes.
-func (p *postgresPool) createDatabase(t testing.TB, version, initSQLScript string) (*PostgresDBContainer, error) {
+func (p *postgresPool) createDatabase(t testing.TB, version, initSQLScriptPath string) (*PostgresDBContainer, error) {
 	version = postgresVersion(version)
 
 	server, err := p.servers.get(version, func() (*postgresServer, error) {
@@ -70,7 +70,7 @@ func (p *postgresPool) createDatabase(t testing.TB, version, initSQLScript strin
 		return nil, err
 	}
 
-	container, err := server.createDatabase(t.Context(), initSQLScript)
+	container, err := server.createDatabase(t.Context(), initSQLScriptPath)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func startPostgresServer(ctx context.Context, version string) (*postgresServer, 
 	}
 	container.shared = true
 
-	admin, err := sql.Open("postgres", databaseURL(container.DBHost, strconv.Itoa(container.DBPort), dbName))
+	admin, err := sql.Open("postgres", dbURL(container.DBHost, strconv.Itoa(container.DBPort), defaultDBName))
 	if err != nil {
 		return nil, errors.Join(err, container.Terminate(ctx))
 	}
@@ -112,13 +112,13 @@ func startPostgresServer(ctx context.Context, version string) (*postgresServer, 
 
 // createDatabase creates a database for one test. With an init script, the database is a copy of the template
 // database for that script.
-func (s *postgresServer) createDatabase(ctx context.Context, initSQLScript string) (*PostgresDBContainer, error) {
+func (s *postgresServer) createDatabase(ctx context.Context, initSQLScriptPath string) (*PostgresDBContainer, error) {
 	name := s.newDatabaseName("test")
 	query := "CREATE DATABASE " + pq.QuoteIdentifier(name)
 
-	if initSQLScript != "" {
-		template, err := s.templates.get(initSQLScript, func() (string, error) {
-			return s.createTemplate(context.WithoutCancel(ctx), initSQLScript)
+	if initSQLScriptPath != "" {
+		template, err := s.templates.get(initSQLScriptPath, func() (string, error) {
+			return s.createTemplate(context.WithoutCancel(ctx), initSQLScriptPath)
 		})
 		if err != nil {
 			return nil, err
@@ -138,25 +138,25 @@ func (s *postgresServer) createDatabase(ctx context.Context, initSQLScript strin
 
 // createTemplate creates a template database and runs the init script in it with psql inside the container, the
 // same way the Postgres image runs scripts from /docker-entrypoint-initdb.d/.
-func (s *postgresServer) createTemplate(ctx context.Context, initSQLScript string) (string, error) {
+func (s *postgresServer) createTemplate(ctx context.Context, initSQLScriptPath string) (string, error) {
 	name := s.newDatabaseName("template")
 	if _, err := s.admin.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(name)); err != nil {
 		return "", fmt.Errorf("creating template database %q: %w", name, err)
 	}
 
 	scriptPath := "/tmp/" + name + ".sql"
-	if err := s.container.CopyFileToContainer(ctx, initSQLScript, scriptPath, 0o644); err != nil {
-		return "", fmt.Errorf("copying init script %q: %w", initSQLScript, err)
+	if err := s.container.CopyFileToContainer(ctx, initSQLScriptPath, scriptPath, 0o644); err != nil {
+		return "", fmt.Errorf("copying init script %q: %w", initSQLScriptPath, err)
 	}
 
 	cmd := []string{"psql", "-v", "ON_ERROR_STOP=1", "-U", dbUsername, "-d", name, "-f", scriptPath}
 	code, output, err := s.container.Exec(ctx, cmd, tcexec.Multiplexed())
 	if err != nil {
-		return "", fmt.Errorf("running init script %q: %w", initSQLScript, err)
+		return "", fmt.Errorf("running init script %q: %w", initSQLScriptPath, err)
 	}
 	if code != 0 {
 		out, _ := io.ReadAll(output)
-		return "", fmt.Errorf("running init script %q: exit code %d: %s", initSQLScript, code, out)
+		return "", fmt.Errorf("running init script %q: exit code %d: %s", initSQLScriptPath, code, out)
 	}
 
 	return name, nil

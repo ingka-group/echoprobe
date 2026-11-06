@@ -89,22 +89,22 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 		o.Config = &gorm.Config{}
 	}
 
-	var initSQLScript string
+	var initSQLScriptPath string
 	if strings.TrimSpace(o.InitSQLScript) != "" {
 		executionPath, err := testpath()
 		if err != nil {
 			it.T.Fatalf("database setup error: resolving fixture path: %v", err)
 		}
-		initSQLScript = filepath.Join(executionPath, "fixtures", o.InitSQLScript)
+		initSQLScriptPath = filepath.Join(executionPath, "fixtures", o.InitSQLScript)
 	}
 
 	// Without RunWithPostgres, nothing stops a shared container, so sharing relies on Ryuk to remove it.
 	var dbContainer *PostgresDBContainer
 	var err error
 	if sharedPostgres.managed.Load() || !testcontainers.ReadConfig().Config.RyukDisabled {
-		dbContainer, err = sharedPostgres.createDatabase(it.T, o.Version, initSQLScript)
+		dbContainer, err = sharedPostgres.createDatabase(it.T, o.Version, initSQLScriptPath)
 	} else {
-		dbContainer, err = setupPostgresDB(context.Background(), o.Version, initSQLScript)
+		dbContainer, err = setupPostgresDB(context.Background(), o.Version, initSQLScriptPath)
 	}
 	if err != nil {
 		it.T.Fatalf("database setup error: %v", err)
@@ -112,7 +112,7 @@ func (o IntegrationTestWithPostgres) setup(it *IntegrationTest) {
 
 	it.Container = dbContainer
 
-	dsn := databaseURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort), dbContainer.DBName)
+	dsn := dbURL(dbContainer.DBHost, strconv.Itoa(dbContainer.DBPort), dbContainer.DBName)
 	db, err := gorm.Open(postgres.Open(dsn), o.Config)
 	if err != nil {
 		it.T.Fatalf("database connection error: %v", err)

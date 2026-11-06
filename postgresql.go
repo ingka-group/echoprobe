@@ -28,7 +28,7 @@ import (
 
 const (
 	defaultPostgresVersion = "17-alpine"
-	dbName                 = "postgres"
+	defaultDBName          = "postgres"
 	dbUsername             = "postgres"
 	dbPassword             = "password"
 	dbPort                 = "5432/tcp"
@@ -58,7 +58,7 @@ func postgresVersion(version string) string {
 // setupPostgresDB sets up a postgres database test container.
 // Init SQL scripts are mounted into /docker-entrypoint-initdb.d/ so Postgres
 // executes them during its own initialization, before accepting TCP connections.
-func setupPostgresDB(ctx context.Context, version, initSQLScript string) (*PostgresDBContainer, error) {
+func setupPostgresDB(ctx context.Context, version, initSQLScriptPath string) (*PostgresDBContainer, error) {
 	req := testcontainers.ContainerRequest{
 		Image: "postgres:" + postgresVersion(version),
 		Env: map[string]string{
@@ -67,15 +67,15 @@ func setupPostgresDB(ctx context.Context, version, initSQLScript string) (*Postg
 		},
 		ExposedPorts: []string{dbPort},
 		WaitingFor: wait.ForSQL(dbPort, "postgres", func(host, port string) string {
-			return databaseURL(host, port, dbName)
+			return dbURL(host, port, defaultDBName)
 		}),
 	}
 
-	if initSQLScript != "" {
+	if initSQLScriptPath != "" {
 		req.Files = []testcontainers.ContainerFile{
 			{
-				HostFilePath:      initSQLScript,
-				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScript),
+				HostFilePath:      initSQLScriptPath,
+				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScriptPath),
 				FileMode:          0644,
 			},
 		}
@@ -103,16 +103,16 @@ func setupPostgresDB(ctx context.Context, version, initSQLScript string) (*Postg
 		Container:  container,
 		DBHost:     hostIP,
 		DBPort:     int(mappedPort.Num()),
-		DBName:     dbName,
+		DBName:     defaultDBName,
 		DBUsername: dbUsername,
 		DBPassword: dbPassword,
 	}, nil
 }
 
-// databaseURL returns the URL of the given postgres database.
-func databaseURL(host, port, database string) string {
+// dbURL returns the postgres database URL.
+func dbURL(host, port, dbName string) string {
 	port, _, _ = strings.Cut(port, "/")
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, database,
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, dbName,
 	)
 }
