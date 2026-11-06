@@ -103,6 +103,7 @@ Starting a Postgres container per test is slow. When [Ryuk](https://golang.testc
 - Each test gets its own database, copied from the template with `CREATE DATABASE ... TEMPLATE`. Tests cannot see each other's data, also under `t.Parallel()`.
 - The test database is dropped when the test finishes. `it.Container.DBName` holds its name.
 - If you run migrations (for example goose) after `NewIntegrationTest`, keep doing so. They run against the test's own database.
+- Roles and other server-wide objects are shared by all tests on the container. A plain `CREATE ROLE` in an init script or migration fails the second time it runs, so create them only if they do not exist yet (for example in a `DO $$ ... IF NOT EXISTS` block).
 
 When Ryuk is disabled (`TESTCONTAINERS_RYUK_DISABLED=true`), nothing would remove a shared container, so every test starts its own container as before. To share containers anyway, run the package through `RunWithPostgres` in `TestMain`. It stops the shared containers after all tests in the package have run:
 
