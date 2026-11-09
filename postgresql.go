@@ -28,7 +28,7 @@ import (
 
 const (
 	defaultPostgresVersion = "17-alpine"
-	dbName                 = "postgres"
+	defaultDBName          = "postgres"
 	dbUsername             = "postgres"
 	dbPassword             = "password"
 	dbPort                 = "5432/tcp"
@@ -43,36 +43,39 @@ type PostgresDBContainer struct {
 	DBName     string
 	DBUsername string
 	DBPassword string
+
+	shared bool
+}
+
+func postgresVersion(version string) string {
+	if version == "" {
+		return defaultPostgresVersion
+	}
+
+	return version
 }
 
 // setupPostgresDB sets up a postgres database test container.
 // Init SQL scripts are mounted into /docker-entrypoint-initdb.d/ so Postgres
 // executes them during its own initialization, before accepting TCP connections.
-func setupPostgresDB(ctx context.Context, version string, initSQLScript ...string) (*PostgresDBContainer, error) {
-	if version == "" {
-		version = defaultPostgresVersion
-	}
-
+func setupPostgresDB(ctx context.Context, version, initSQLScriptPath string) (*PostgresDBContainer, error) {
 	req := testcontainers.ContainerRequest{
-		Image: "postgres:" + version,
+		Image: "postgres:" + postgresVersion(version),
 		Env: map[string]string{
 			"POSTGRES_USER":     dbUsername,
 			"POSTGRES_PASSWORD": dbPassword,
 		},
 		ExposedPorts: []string{dbPort},
-		WaitingFor:   wait.ForSQL(dbPort, "postgres", dbURL),
+		WaitingFor: wait.ForSQL(dbPort, "postgres", func(host, port string) string {
+			return dbURL(host, port, defaultDBName)
+		}),
 	}
 
-	if len(initSQLScript) > 0 && strings.TrimSpace(initSQLScript[0]) != "" {
-		executionPath, err := testpath()
-		if err != nil {
-			return nil, fmt.Errorf("resolving fixture path: %w", err)
-		}
-
+	if initSQLScriptPath != "" {
 		req.Files = []testcontainers.ContainerFile{
 			{
-				HostFilePath:      filepath.Join(executionPath, "fixtures", initSQLScript[0]),
-				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScript[0]),
+				HostFilePath:      initSQLScriptPath,
+				ContainerFilePath: "/docker-entrypoint-initdb.d/" + filepath.Base(initSQLScriptPath),
 				FileMode:          0644,
 			},
 		}
@@ -100,14 +103,14 @@ func setupPostgresDB(ctx context.Context, version string, initSQLScript ...strin
 		Container:  container,
 		DBHost:     hostIP,
 		DBPort:     int(mappedPort.Num()),
-		DBName:     dbName,
+		DBName:     defaultDBName,
 		DBUsername: dbUsername,
 		DBPassword: dbPassword,
 	}, nil
 }
 
 // dbURL returns the postgres database URL.
-func dbURL(host string, port string) string {
+func dbURL(host, port, dbName string) string {
 	port, _, _ = strings.Cut(port, "/")
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUsername, dbPassword, host, port, dbName,
